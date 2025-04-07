@@ -1,19 +1,18 @@
 use eframe::egui;
 
-mod utils;
 mod habr_client;
 mod hubs_list;
+mod utils;
 
 use hubs_list::HubsList;
-
 
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default(),
-            // .with_active(true)
-            // .with_fullscreen(true),
+        // .with_active(true)
+        // .with_fullscreen(true),
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
@@ -38,16 +37,14 @@ impl Default for MyApp {
         let mut hubs_list = HubsList::default();
         hubs_list.get_hubs();
 
-        Self {
-            hubs_list,
-        }
+        Self { hubs_list }
     }
 }
 
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            // ctx.set_pixels_per_point(2.0);
+            ctx.set_pixels_per_point(1.5);
 
             if self.hubs_list.active {
                 self.hubs_list.ui(ui, ctx)

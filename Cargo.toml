@@ -4,17 +4,17 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-eframe = { version = "0.31", default-features = false, features = [
+eframe = { version = "0.30", default-features = false, features = [
     "glow",
     "default_fonts",
     "wayland",
     "accesskit",
 ] }
-egui_extras = { version = "0.31", default-features = false, features = [
+egui_extras = { version = "0.30", default-features = false, features = [
     "image",
     "http",
 ] }
-egui_flex = "0.3"
+egui_flex = "0.2"
 
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
@@ -41,7 +41,23 @@ tokio = { version = "1.41.0", default-features = false, features = [
 scraper = "0.23"
 chrono = "0.4"
 
+
+[package.metadata.generate-rpm]
+name = "com.lmaxyz.Habre"
+license = "GPL3"
+summary = "Egui Habr client"
+release = "1"
+url = "https://github.com/lmaxyz/habre"
+assets = [
+    { source = "target/armv7-unknown-linux-gnueabihf/release/habre", dest = "/usr/bin/com.lmaxyz.Habre", mode = "755" },
+    { source = "rpm/com.lmaxyz.Habre.desktop", dest = "/usr/share/applications/com.lmaxyz.Habre.desktop", mode = "644" },
+    { source = "rpm/icons/86x86/com.lmaxyz.Habre.png", dest = "/usr/share/icons/hicolor/86x86/apps/com.lmaxyz.Habre.png", mode = "644" },
+    { source = "rpm/icons/108x108/com.lmaxyz.Habre.png", dest = "/usr/share/icons/hicolor/108x108/apps/com.lmaxyz.Habre.png", mode = "644" },
+    { source = "rpm/icons/128x128/com.lmaxyz.Habre.png", dest = "/usr/share/icons/hicolor/128x128/apps/com.lmaxyz.Habre.png", mode = "644" },
+    { source = "rpm/icons/172x172/com.lmaxyz.Habre.png", dest = "/usr/share/icons/hicolor/172x172/apps/com.lmaxyz.Habre.png", mode = "644" },
+]
+
 [patch.crates-io]
-# winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
+winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
 glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }
 # wgpu = { git = "https://github.com/lmaxyz/wgpu", branch = "v23" }
