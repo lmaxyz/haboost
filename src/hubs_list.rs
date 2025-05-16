@@ -6,8 +6,7 @@ use std::{
     },
 };
 
-use eframe::egui::{
-    Button, Context, Image, Label, Layout, RichText, ScrollArea, Spinner, Ui, Vec2,
+use eframe::egui::{Button, Context, Image, Label, Layout, RichText, ScrollArea, Sense, Spinner, TextEdit, Ui, UiBuilder, Vec2
 };
 use egui_flex::{item, Flex};
 use tokio::runtime::Runtime;
@@ -15,9 +14,10 @@ use tokio::runtime::Runtime;
 use crate::habr_client::hub::{get_hubs, HubItem};
 
 pub struct HubsList {
-    pub active: bool,
     pub is_loading: Arc<AtomicBool>,
+    pub selected_hub_id: String,
 
+    search_text: String,
     tokio_rt: Runtime,
     reset_scroll_area: bool,
     current_page: u8,
@@ -33,13 +33,16 @@ impl Default for HubsList {
             .build()
             .unwrap();
         let hubs = Default::default();
+
         Self {
-            active: true,
+            search_text: String::new(),
+            selected_hub_id: String::new(),
             is_loading: Arc::new(AtomicBool::new(true)),
             reset_scroll_area: false,
-            tokio_rt,
             current_page: 1,
             max_page: Arc::new(AtomicU8::new(0)),
+
+            tokio_rt,
             hubs,
         }
     }
@@ -52,6 +55,11 @@ impl HubsList {
         ui.with_layout(Layout::top_down(eframe::egui::Align::Center), |ui| {
             ui.label(RichText::new("Хабы").size(32.));
             ui.separator();
+            ui.spinner();
+            let search_edit = TextEdit::singleline(&mut self.search_text)
+                .hint_text("Поиск...")
+                .lock_focus(true);
+            search_edit.show(ui).response.highlight();
 
             if self.is_loading.load(Ordering::Relaxed) {
                 ui.add_sized(
@@ -74,16 +82,28 @@ impl HubsList {
                 scroll_area.show(ui, |ui| {
                     for hub in self.hubs.read().unwrap().iter() {
                         ui.add_space(10.);
-                        ui.horizontal(|ui| {
-                            ui.add(
-                                Image::new("https:".to_string() + hub.image_url.as_str())
-                                    .fit_to_exact_size((100., 100.).into()),
-                            );
-                            ui.vertical(|ui| {
-                                ui.label(RichText::new(hub.title.as_str()).size(24.).strong());
-                                ui.label(RichText::new(hub.description_html.as_str()).size(18.));
+                        let hub_item = ui
+                            .scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
+                                ui.horizontal(|ui| {
+                                    ui.add(
+                                        Image::new("https:".to_string() + hub.image_url.as_str())
+                                            .fit_to_exact_size((100., 100.).into()),
+                                    );
+                                    ui.vertical(|ui| {
+                                        ui.label(
+                                            RichText::new(hub.title.as_str()).size(24.).strong(),
+                                        );
+                                        ui.label(
+                                            RichText::new(hub.description_html.as_str()).size(18.),
+                                        );
+                                    })
+                                });
                             })
-                        });
+                            .response;
+
+                        if hub_item.clicked() {
+                            self.selected_hub_id = hub.id.clone();
+                        }
 
                         ui.separator();
                     }
