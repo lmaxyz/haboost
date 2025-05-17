@@ -6,8 +6,7 @@ use std::{
     },
 };
 
-use eframe::egui::{Button, Context, Image, Label, Layout, RichText, ScrollArea, Sense, Spinner, TextEdit, Ui, UiBuilder, Vec2
-};
+use eframe::egui::{self, Button, Context, Image, Label, Layout, RichText, ScrollArea, Sense, Spinner, TextEdit, Ui, UiBuilder, Vec2};
 use egui_flex::{item, Flex};
 use tokio::runtime::Runtime;
 
@@ -55,11 +54,19 @@ impl HubsList {
         ui.with_layout(Layout::top_down(eframe::egui::Align::Center), |ui| {
             ui.label(RichText::new("Хабы").size(32.));
             ui.separator();
-            ui.spinner();
+            ui.add_space(10.);
+
             let search_edit = TextEdit::singleline(&mut self.search_text)
-                .hint_text("Поиск...")
-                .lock_focus(true);
-            search_edit.show(ui).response.highlight();
+                .min_size((ui.available_width(), 35.).into())
+                .font(egui::TextStyle::Monospace)
+                .hint_text_font(egui::TextStyle::Monospace)
+                .hint_text(RichText::new("Поиск").size(26.))
+                .show(ui);
+            if search_edit.response.clicked() {
+                search_edit.response.request_focus();
+            }
+
+            ui.add_space(10.);
 
             if self.is_loading.load(Ordering::Relaxed) {
                 ui.add_sized(
@@ -116,8 +123,9 @@ impl HubsList {
                 .align_content(egui_flex::FlexAlignContent::SpaceBetween)
                 .show(ui, |flex_ui| {
                     let prev_button = Button::new(RichText::new("<").size(28.0))
-                        .rounding(50.)
+                        .corner_radius(50.)
                         .min_size((paging_height, paging_height).into());
+
                     if flex_ui.add(item().grow(1.), prev_button).clicked() {
                         self.is_loading.store(true, Ordering::Relaxed);
                         self.current_page -= 1;
@@ -134,7 +142,7 @@ impl HubsList {
                     );
 
                     let next_button = Button::new(RichText::new(">").size(28.0))
-                        .rounding(50.0)
+                        .corner_radius(50.0)
                         .min_size((paging_height, paging_height).into());
 
                     if flex_ui.add(item().grow(1.), next_button).clicked() {

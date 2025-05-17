@@ -1,4 +1,4 @@
-use eframe::egui::{self};
+use eframe::egui;
 use maliit::input_method::InputMethod;
 use maliit::events::{InputMethodEvent, Key as MaliitKey};
 use egui_virtual_keyboard::VirtualKeyboard;
@@ -31,8 +31,8 @@ fn main() -> eframe::Result {
 
 struct MyApp {
     hubs_list: HubsList,
-    im: InputMethod,
-    im_called: bool,
+    input_method: InputMethod,
+    im_showed: bool,
     _virtual_kb: VirtualKeyboard
 }
 
@@ -40,12 +40,12 @@ impl Default for MyApp {
     fn default() -> Self {
         let mut hubs_list = HubsList::default();
         hubs_list.get_hubs();
-        let im = InputMethod::new().unwrap();
+        let input_method = InputMethod::new().unwrap();
 
         Self {
             hubs_list,
-            im,
-            im_called: false,
+            input_method,
+            im_showed: false,
             _virtual_kb: VirtualKeyboard::default()
         }
     }
@@ -55,17 +55,6 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ctx.set_pixels_per_point(1.5);
-
-            if ctx.wants_keyboard_input() && !self.im_called {
-                self.im.show();
-                self.im_called = true;
-            }
-
-            if !ctx.wants_keyboard_input() && self.im_called {
-                self.im.hide();
-                self.im_called = false;
-            }
-
             // if ctx.wants_keyboard_input() || self.virtual_kb.focused(ctx).is_some() {
             //     egui::Window::new("KBD")
             //         .default_width(ui.available_width())
@@ -88,23 +77,30 @@ impl eframe::App for MyApp {
         });
     }
 
-    fn raw_input_hook(&mut self, _ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+    fn raw_input_hook(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
         // self.virtual_kb.bump_events(_ctx, raw_input);
-        self.push_maliit_events(raw_input);
+        self.handle_maliit_events(ctx, raw_input);
         // println!("All events: {:?}", raw_input.events);
     }
 }
 
-pub trait MaliitEventReceiver {
-    fn push_maliit_events(&mut self, raw_input: &mut egui::RawInput);
+pub trait MaliitEventsHandler {
+    fn handle_maliit_events(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput);
 }
 
-impl MaliitEventReceiver for MyApp {
-    fn push_maliit_events(&mut self, raw_input: &mut egui::RawInput) {
-        if let Some(new_events) = self.im.get_new_events() {
-            if new_events.len() > 0 {
-                println!("Has new events: {:?}", new_events);
-            }
+impl MaliitEventsHandler for MyApp {
+    fn handle_maliit_events(&mut self, ctx: &egui::Context, raw_input: &mut egui::RawInput) {
+        if ctx.wants_keyboard_input() && !self.im_showed {
+            self.input_method.show();
+            self.im_showed = true;
+        }
+
+        if !ctx.wants_keyboard_input() && self.im_showed {
+            self.input_method.hide();
+            self.im_showed = false;
+        }
+
+        if let Some(new_events) = self.input_method.get_new_events() {
             for event in new_events {
                 match event {
                     InputMethodEvent::Text(txt) => {
@@ -125,19 +121,12 @@ impl MaliitEventReceiver for MyApp {
 }
 
 fn default_event_key(key: egui::Key, pressed: bool) -> egui::Event {
-    println!("Push key: {:?}", key);
     egui::Event::Key {
         key: key,
         physical_key: None,
         pressed: pressed,
         repeat: false,
-        modifiers: egui::Modifiers {
-            alt: false,
-            ctrl: false,
-            shift: false,
-            mac_cmd: false,
-            command: false
-        }
+        modifiers: egui::Modifiers::NONE
     }
 }
 
