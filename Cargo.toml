@@ -61,9 +61,6 @@ assets = [
 
 [patch.crates-io]
 winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
-# winit = { path = "../../rust/winit"}
 glutin = { git = "https://github.com/lmaxyz/glutin", branch = "egl_debug" }
-# eframe = {git = "https://github.com/lmaxyz/egui", branch = "debug"}
-# egui_extras = {git = "https://github.com/lmaxyz/egui", branch = "debug"}
 
 # wgpu = { git = "https://github.com/lmaxyz/wgpu", branch = "v23" }
