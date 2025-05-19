@@ -57,11 +57,12 @@ impl HubsList {
             ui.add_space(10.);
 
             let search_edit = TextEdit::singleline(&mut self.search_text)
-                .min_size((ui.available_width(), 35.).into())
-                .font(egui::TextStyle::Monospace)
-                .hint_text_font(egui::TextStyle::Monospace)
-                .hint_text(RichText::new("Поиск").size(26.))
+                .desired_width(f32::INFINITY)
+                .font(egui::epaint::text::FontId::monospace(24.))
+                .hint_text_font(egui::epaint::text::FontId::monospace(24.))
+                .hint_text("Поиск")
                 .show(ui);
+
             if search_edit.response.clicked() {
                 search_edit.response.request_focus();
             }
