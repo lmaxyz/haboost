@@ -1,5 +1,4 @@
 use chrono;
-use image::DynamicImage;
 use reqwest::{header, Client, Error, Method, RequestBuilder};
 use scraper::{ElementRef, Html};
 use std::str::FromStr;
@@ -7,7 +6,7 @@ use std::str::FromStr;
 pub mod article;
 pub mod hub;
 
-use article::{ArticleContent, ArticleData, ArticleResponse, ArticlesResponse, TextType};
+use article::{ArticleContent, ArticleData, ArticleResponse, ArticlesResponse, TypedText};
 
 type PagesCount = usize;
 
@@ -64,7 +63,7 @@ impl HabrClient {
                 ("page", page.to_string().as_str()),
                 ("hub", hub),
                 ("sort", "all"),
-                ("perPage", "15"),
+                ("perPage", "20"),
             ])
             .send()
             .await?;
@@ -76,7 +75,6 @@ impl HabrClient {
             .articles
             .into_values()
             .map(|a| {
-                let image = DynamicImage::new_rgb8(480, 280);
                 let published_at: chrono::DateTime<chrono::Local> =
                     chrono::DateTime::from_str(&a.published_at).unwrap();
 
@@ -89,7 +87,6 @@ impl HabrClient {
                     tags: a.tags.into_iter().map(|t| t.title).collect(),
                     complexity: a.complexity.unwrap_or(String::new()),
                     image_url: a.lead_data.image_url.unwrap_or("".to_string()),
-                    image,
                 }
             })
             .collect();
@@ -100,19 +97,68 @@ impl HabrClient {
 
 async fn extract_content_from_html(text: String) -> Vec<ArticleContent> {
     let html = Html::parse_fragment(&text);
+    // for node in html.tree.values().into_iter() {
+    //     println!("Node: {:?}", node);
+    //     // if let Some(el) = node.as_element() {
+    //     //     println!("Node: {:?}", el);
+    //     // }
+    // }
     parse_content_recursively(html.root_element())
 }
 
 fn parse_content_recursively<'a>(element: ElementRef<'a>) -> Vec<ArticleContent> {
     let mut res = Vec::new();
-    let parsed_content = element.try_into().ok();
-    if let Some(content) = parsed_content {
+    if let Ok(content) = element.try_into() {
         res.push(content);
     }
     for inner_elem in element.child_elements() {
         res.extend(parse_content_recursively(inner_elem))
     }
     res
+}
+
+fn extract_paragraph_content<'a>(element: &ElementRef<'a>) -> Vec<TypedText> {
+    if element.value().name() == "p" && element.has_children() {
+        return element.children().filter_map(|child| {
+            if let Some(txt) = child.value().as_text() {
+                return Some(TypedText::Common(txt.to_string()))
+            }
+            if let Some(elem) = child.value().as_element() {
+                match elem.name() {
+                    "code" => {
+                        if let Some(code_child) = child.first_child() {
+                            if let Some(code_text) = code_child.value().as_text() {
+                                return Some(TypedText::Code(code_text.to_string()))
+                            }
+                            println!("Code block with not a text child: {:?}", code_child);
+                        }
+                        println!("Code block without child")
+                    },
+                    "a" => {
+                        let url = elem.attr("href").unwrap().to_string();
+                        let value = if let Some(link_child) = child.first_child() {
+                            if let Some(link_text) = link_child.value().as_text() {
+                                link_text.to_string()
+                            } else {
+                                url.clone()
+                            }
+                        } else {
+                            url.clone()
+                        };
+                        let link = TypedText::Link {
+                            url,
+                            value
+                        };
+                        println!("Link inside paragraph: {:?}", link);
+                        return Some(link)
+                    }
+                    _tag_name => {}
+                }
+            }
+            None
+        }).collect()
+    }
+    Vec::new()
 }
 
 fn get_element_text<'a>(element: &ElementRef<'a>) -> String {
@@ -135,24 +181,26 @@ impl TryFrom<&ElementRef<'_>> for ArticleContent {
                     Err(())
                 }
             }
-            "p" => Ok(ArticleContent::Text(
-                get_element_text(element),
-                TextType::Common,
-            )),
-            "h2" => Ok(ArticleContent::Text(
-                get_element_text(element),
-                TextType::Header(2),
-            )),
-            "h3" => Ok(ArticleContent::Text(
-                get_element_text(element),
-                TextType::Header(3),
-            )),
-            "h4" => Ok(ArticleContent::Text(
-                get_element_text(element),
-                TextType::Header(4),
-            )),
+            "p" => Ok(ArticleContent::Paragraph(extract_paragraph_content(element))),
+            "h2" => Ok(ArticleContent::Header(2, get_element_text(element))),
+            "h3" => Ok(ArticleContent::Header(3, get_element_text(element))),
+            "h4" => Ok(ArticleContent::Header(4, get_element_text(element))),
+            "code" => {
+                if element.parent().unwrap().value().as_element().unwrap().name() == "p" {
+                    return Err(())
+                }
+                Ok(ArticleContent::Code{
+                    lang: element.attr("class").unwrap_or("").to_string(),
+                    content: get_element_text(element)
+                })
+            },
+            // "a" => {
+            //     Ok(ArticleContent::Text(
+            //     get_element_text(element),
+            //     TextType::Link(element.attr("href").unwrap_or("").to_string()),
+            // ))},
             _tag @ _ => {
-                // println!("[!] Unsupported tag: {}", tag);
+                println!("[!] Unsupported tag: {}", _tag);
                 Err(())
             }
         }

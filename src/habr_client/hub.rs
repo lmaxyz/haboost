@@ -28,15 +28,22 @@ struct HubsResponse {
     hub_refs: HashMap<String, HubItem>,
 }
 
-pub async fn get_hubs(page: u8) -> Result<(Vec<HubItem>, usize), Error> {
+pub async fn get_hubs(page: u8, search_text: String) -> Result<(Vec<HubItem>, usize), Error> {
+    let url = if search_text.is_empty() {
+        "https://habr.com/kek/v2/hubs"
+    } else {
+        "https://habr.com/kek/v2/hubs/search"
+    };
+
     let resp = reqwest::Client::new()
-        .get("https://habr.com/kek/v2/hubs/")
+        .get(url)
         .header("Cookie", "fl=ru; hl=ru;")
         .query(&[
+            ("q", search_text.as_str()),
             ("page", page.to_string().as_str()),
             ("fl", "ru"),
             ("hl", "ru"),
-            ("perPage", "30"),
+            // ("perPage", "30"),
         ])
         .send()
         .await?;

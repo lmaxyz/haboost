@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use image::DynamicImage;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
@@ -58,6 +57,8 @@ pub(crate) struct ArticleResponse {
     pub text: String,
 }
 
+
+#[derive(Clone, Debug)]
 pub struct ArticleData {
     pub(crate) id: String,
     pub(crate) title: String,
@@ -67,17 +68,25 @@ pub struct ArticleData {
     pub(crate) published_at: String,
     pub(crate) reading_time: usize,
     pub image_url: String,
-    pub(crate) image: DynamicImage,
 }
 
 
-#[derive(Debug, Clone, Copy)]
-pub enum TextType {
-    Header(u8),
-    Common,
+#[derive(Debug, Clone)]
+pub enum TypedText {
+    Common(String),
+    Code(String),
+    Link {
+        url: String,
+        value: String
+    },
 }
 
 pub enum ArticleContent {
     Image(String),
-    Text(String, TextType),
+    Header(u8, String),
+    Paragraph(Vec<TypedText>),
+    Code {
+        lang: String,
+        content: String
+    }
 }

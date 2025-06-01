@@ -1,22 +1,24 @@
 use std::{
-    ops::DerefMut,
-    sync::{
+    cell::RefCell, rc::Rc, sync::{
         atomic::{AtomicBool, AtomicU8, Ordering},
         Arc, RwLock,
-    },
+    }
 };
 
-use eframe::egui::{self, Button, Context, Image, Label, Layout, RichText, ScrollArea, Sense, Spinner, TextEdit, Ui, UiBuilder, Vec2};
-use egui_flex::{item, Flex};
+use eframe::egui::{self, Context, Layout, RichText, ScrollArea, Spinner, TextEdit, Ui, Vec2};
 use tokio::runtime::Runtime;
 
-use crate::habr_client::hub::{get_hubs, HubItem};
+use crate::{habr_client::hub::{get_hubs, HubItem}, HabreState};
+use crate::widgets::{Pager, HubListItem};
 
 pub struct HubsList {
     pub is_loading: Arc<AtomicBool>,
-    pub selected_hub_id: String,
+    hub_selected_cb: Option<Box<dyn FnMut(String)>>,
 
     search_text: String,
+    search_was_changed: bool,
+
+    habre_state: Rc<RefCell<HabreState>>,
     tokio_rt: Runtime,
     reset_scroll_area: bool,
     current_page: u8,
@@ -24,8 +26,8 @@ pub struct HubsList {
     hubs: Arc<RwLock<Vec<HubItem>>>,
 }
 
-impl Default for HubsList {
-    fn default() -> Self {
+impl HubsList {
+    pub fn new(habre_state: Rc<RefCell<HabreState>>) -> Self {
         let tokio_rt = tokio::runtime::Builder::new_multi_thread()
             .enable_time()
             .enable_io()
@@ -34,8 +36,11 @@ impl Default for HubsList {
         let hubs = Default::default();
 
         Self {
+            habre_state,
             search_text: String::new(),
-            selected_hub_id: String::new(),
+            search_was_changed: false,
+            hub_selected_cb: None,
+
             is_loading: Arc::new(AtomicBool::new(true)),
             reset_scroll_area: false,
             current_page: 1,
@@ -45,34 +50,24 @@ impl Default for HubsList {
             hubs,
         }
     }
-}
 
-impl HubsList {
+    pub fn on_hub_selected<F>(&mut self, callback: F)
+    where F: FnMut(String) + 'static {
+        self.hub_selected_cb = Some(Box::new(callback));
+    }
+
     pub fn ui(&mut self, ui: &mut Ui, _ctx: &Context) {
         let paging_height = 50.;
-        let paging_padding = 10.;
         ui.with_layout(Layout::top_down(eframe::egui::Align::Center), |ui| {
             ui.label(RichText::new("Хабы").size(32.));
             ui.separator();
-            ui.add_space(10.);
 
-            let search_edit = TextEdit::singleline(&mut self.search_text)
-                .desired_width(f32::INFINITY)
-                .font(egui::epaint::text::FontId::monospace(24.))
-                .hint_text_font(egui::epaint::text::FontId::monospace(24.))
-                .hint_text("Поиск")
-                .show(ui);
-
-            if search_edit.response.clicked() {
-                search_edit.response.request_focus();
-            }
-
-            ui.add_space(10.);
+            self.search_ui(ui);
 
             if self.is_loading.load(Ordering::Relaxed) {
                 ui.add_sized(
-                    ui.available_size() - Vec2::new(0., paging_height + (paging_padding * 2.)),
-                    Spinner::new().size(32.),
+                    ui.available_size() - Vec2::new(0., paging_height),
+                    Spinner::new().size(50.),
                 );
             } else {
                 let mut scroll_area = ScrollArea::vertical()
@@ -80,7 +75,7 @@ impl HubsList {
                     .scroll_bar_visibility(
                         eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
                     )
-                    .max_height(ui.available_height() - paging_height - (paging_padding * 2.));
+                    .max_height(ui.available_height() - paging_height);
 
                 if self.reset_scroll_area {
                     scroll_area = scroll_area.vertical_scroll_offset(0.);
@@ -89,28 +84,16 @@ impl HubsList {
 
                 scroll_area.show(ui, |ui| {
                     for hub in self.hubs.read().unwrap().iter() {
-                        ui.add_space(10.);
-                        let hub_item = ui
-                            .scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
-                                ui.horizontal(|ui| {
-                                    ui.add(
-                                        Image::new("https:".to_string() + hub.image_url.as_str())
-                                            .fit_to_exact_size((100., 100.).into()),
-                                    );
-                                    ui.vertical(|ui| {
-                                        ui.label(
-                                            RichText::new(hub.title.as_str()).size(24.).strong(),
-                                        );
-                                        ui.label(
-                                            RichText::new(hub.description_html.as_str()).size(18.),
-                                        );
-                                    })
-                                });
-                            })
-                            .response;
+                        if HubListItem::ui(ui, hub).clicked() {
+                            {
+                                let mut state = self.habre_state.borrow_mut();
+                                state.selected_hub_id = hub.alias.clone();
+                                state.selected_hub_title = hub.title.clone();
+                            }
 
-                        if hub_item.clicked() {
-                            self.selected_hub_id = hub.id.clone();
+                            self.hub_selected_cb.as_mut().map(|cb| {
+                                cb(hub.id.clone());
+                            });
                         }
 
                         ui.separator();
@@ -118,56 +101,46 @@ impl HubsList {
                 });
             };
 
-            ui.add_space(paging_padding);
-            Flex::horizontal()
-                .w_full()
-                .align_content(egui_flex::FlexAlignContent::SpaceBetween)
-                .show(ui, |flex_ui| {
-                    let prev_button = Button::new(RichText::new("<").size(28.0))
-                        .corner_radius(50.)
-                        .min_size((paging_height, paging_height).into());
-
-                    if flex_ui.add(item().grow(1.), prev_button).clicked() {
-                        self.is_loading.store(true, Ordering::Relaxed);
-                        self.current_page -= 1;
-                        self.get_hubs();
-                        self.reset_scroll_area = true;
-                    }
-
-                    let max_page = self.max_page.load(Ordering::Relaxed);
-                    flex_ui.add(
-                        item().grow(1.),
-                        Label::new(
-                            RichText::new(format!("{}/{}", self.current_page, max_page)).size(32.),
-                        ),
-                    );
-
-                    let next_button = Button::new(RichText::new(">").size(28.0))
-                        .corner_radius(50.0)
-                        .min_size((paging_height, paging_height).into());
-
-                    if flex_ui.add(item().grow(1.), next_button).clicked() {
-                        self.is_loading.store(true, Ordering::Relaxed);
-                        self.current_page += 1;
-                        self.get_hubs();
-                        self.reset_scroll_area = true;
-                    }
-                });
-            ui.add_space(paging_padding);
+            if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui, _ctx).changed() {
+                self.get_hubs();
+                self.reset_scroll_area = true;
+            };
         });
     }
 
+    fn search_ui(&mut self, ui: &mut Ui) {
+        let search_edit = TextEdit::singleline(&mut self.search_text)
+            .desired_width(f32::INFINITY)
+            .font(egui::epaint::text::FontId::monospace(24.))
+            .hint_text_font(egui::epaint::text::FontId::monospace(24.))
+            .hint_text("Поиск")
+            .show(ui).response;
+
+        if search_edit.lost_focus() && self.search_was_changed {
+            self.current_page = 1;
+            self.get_hubs();
+            self.search_was_changed = false;
+        }
+
+        if search_edit.changed() {
+            self.search_was_changed = true;
+        }
+    }
+
     pub fn get_hubs(&mut self) {
+        self.is_loading.store(true, Ordering::Relaxed);
+
+        let search_text = self.search_text.clone();
         let hubs = self.hubs.clone();
         let current_page = self.current_page;
         let is_loading = self.is_loading.clone();
         let max_page = self.max_page.clone();
+
         self.tokio_rt.spawn(async move {
-            let (new_hubs, max_page_num) = get_hubs(current_page).await.unwrap();
+            let (new_hubs, max_page_num) = get_hubs(current_page, search_text).await.unwrap();
             match hubs.write() {
                 Ok(mut hubs) => {
-                    let old_hubs = hubs.deref_mut();
-                    *old_hubs = new_hubs;
+                    *hubs = new_hubs;
                     is_loading.store(false, Ordering::Relaxed);
                     max_page.store(max_page_num as u8, Ordering::Relaxed);
                 }
