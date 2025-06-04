@@ -1,4 +1,4 @@
-use eframe::egui::{self, Button, Color32, Frame, Image, Label, Layout, Response, RichText, Sense, Ui, UiBuilder, Widget};
+use eframe::egui::{self, Button, Color32, Frame, Image, Label, Layout, Margin, Response, RichText, Sense, Ui, UiBuilder, Widget};
 use egui_flex::{item, Flex};
 
 use crate::habr_client::{article::ArticleData, hub::HubItem};
@@ -75,17 +75,19 @@ impl HubListItem {
     pub fn ui(ui: &mut Ui, hub: &HubItem) -> Response {
         ui.scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
             ui.horizontal(|ui| {
-                ui.add(
-                    Image::new("https:".to_string() + hub.image_url.as_str())
-                        .fit_to_exact_size((100., 100.).into()),
-                );
-                ui.with_layout(Layout::top_down(egui::Align::Min).with_cross_justify(true), |ui| {
-                    Label::new(RichText::new(hub.title.as_str()).size(24.).strong())
-                        .selectable(false)
-                        .ui(ui);
-                    Label::new(RichText::new(hub.description_html.as_str()).size(18.))
-                        .selectable(false)
-                        .ui(ui);
+                ui.add_sized((100., 100.), Image::new("https:".to_string() + hub.image_url.as_str()).fit_to_exact_size((100., 100.).into()));
+                ui.vertical(|ui| {
+                    ui.with_layout(Layout::top_down_justified(egui::Align::LEFT), |ui| {
+                        Label::new(RichText::new(hub.title.as_str()).size(24.).strong())
+                            .selectable(false)
+                            .ui(ui);
+                    });
+
+                    ui.horizontal_wrapped(|ui| {
+                        Label::new(RichText::new(hub.description_html.as_str()).size(18.))
+                            .selectable(false)
+                            .ui(ui);
+                    });
                 })
             })
         }).response
@@ -149,6 +151,17 @@ impl ArticleListItem {
                         }
                     }
 
+                    // ui.horizontal_wrapped(|ui| {
+                    //     for tag in article.tags.iter() {
+                    //         Frame::NONE
+                    //             .corner_radius(15.)
+                    //             .fill(Color32::LIGHT_RED)
+                    //             .inner_margin(Margin::symmetric(10, 5))
+                    //             .show(ui, |ui| {
+                    //                 Label::new(RichText::new(tag).color(Color32::WHITE).size(16.)).selectable(false).ui(ui);
+                    //             });
+                    //     }
+                    // });
 
                     ui.horizontal_wrapped(|ui| {
                         Label::new(RichText::new(article.title.as_str()).size(24.).strong())
