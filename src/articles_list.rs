@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use tokio::runtime::Runtime;
-use eframe::egui::{Context, Label, Layout, RichText, ScrollArea, Spinner, Ui};
+use eframe::egui::{Context, Label, Layout, RichText, ScrollArea, Spinner, Ui, Widget};
 use egui_flex::{Flex, item};
 
 use crate::{habr_client::{article::ArticleData, HabrClient}, HabreState};
@@ -58,7 +58,9 @@ impl ArticlesList {
             .show(ui, |f_ui| {
                 f_ui.add_ui(item().grow(1.), |ui| {
                     ui.vertical_centered_justified(|ui| {
-                        ui.add(Label::new(RichText::new(self.habre_state.borrow().selected_hub_title.as_str()).size(32.)));
+                        ui.with_layout(Layout::top_down(eframe::egui::Align::Center).with_main_wrap(true), |ui| {
+                            Label::new(RichText::new(self.habre_state.borrow().selected_hub_title.as_str()).size(32.)).ui(ui)
+                        });
                         ui.separator();
                     });
                 });
@@ -88,8 +90,6 @@ impl ArticlesList {
                                         }
                                     });
                                 });
-
-                                ui.separator();
                             }
                         });
                     });
