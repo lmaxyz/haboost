@@ -18,6 +18,7 @@ pub struct ArticleDetails {
     async_rt: Runtime,
     article_title: Arc<RwLock<String>>,
     article_content: Arc<RwLock<Vec<ArticleContent>>>,
+    go_top: Arc<AtomicBool>,
 }
 
 impl ArticleDetails {
@@ -35,6 +36,7 @@ impl ArticleDetails {
             habr_client: HabrClient::new(),
             article_title: Default::default(),
             article_content: Default::default(),
+            go_top: Default::default()
         }
     }
 
@@ -43,9 +45,14 @@ impl ArticleDetails {
             if self.is_loading.load(Ordering::Relaxed) {
                 ui.add_sized(ui.available_size(), Spinner::new().size(50.));
             } else {
-                let scroll_area = ScrollArea::vertical()
+                let mut scroll_area = ScrollArea::vertical()
                     .auto_shrink(false)
                     .max_height(ui.available_height());
+
+                if self.go_top.load(Ordering::Relaxed) {
+                    scroll_area = scroll_area.vertical_scroll_offset(0.);
+                    self.go_top.store(false, Ordering::Relaxed)
+                };
 
                 scroll_area.show(ui, |ui| {
                     ui.add(
@@ -121,6 +128,8 @@ impl ArticleDetails {
         let current_content = self.article_content.clone();
         let is_loading = self.is_loading.clone();
         let current_article_title = self.article_title.clone();
+        let go_top = self.go_top.clone();
+
         self.async_rt.spawn(async move {
             if let Ok((article_title, article_content)) = client.get_article_details(article_id.as_str()).await {
                 let mut current_content = current_content.write().unwrap();
@@ -128,6 +137,7 @@ impl ArticleDetails {
                 *current_content = article_content;
                 *current_article_title = article_title;
                 is_loading.store(false, Ordering::Relaxed);
+                go_top.store(true, Ordering::Relaxed)
             }
         });
     }
