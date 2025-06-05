@@ -1,5 +1,5 @@
 [package]
-name = "habre"
+name = "haboost"
 version = "0.1.0"
 edition = "2021"
 
@@ -45,22 +45,22 @@ chrono = "0.4"
 strip = true
 
 [package.metadata.generate-rpm]
-name = "com.lmaxyz.Habre"
+name = "com.lmaxyz.Haboost"
 license = "Apache-2.0"
 summary = "Egui Habr client"
 release = "1"
 url = "https://github.com/lmaxyz/habre"
 assets = [
-    { source = "target/armv7-unknown-linux-gnueabihf/release/habre", dest = "/usr/bin/com.lmaxyz.Habre", mode = "755" },
-    { source = "rpm/com.lmaxyz.Habre.desktop", dest = "/usr/share/applications/com.lmaxyz.Habre.desktop", mode = "644" },
-    { source = "rpm/icons/86x86/com.lmaxyz.Habre.png", dest = "/usr/share/icons/hicolor/86x86/apps/com.lmaxyz.Habre.png", mode = "644" },
-    { source = "rpm/icons/108x108/com.lmaxyz.Habre.png", dest = "/usr/share/icons/hicolor/108x108/apps/com.lmaxyz.Habre.png", mode = "644" },
-    { source = "rpm/icons/128x128/com.lmaxyz.Habre.png", dest = "/usr/share/icons/hicolor/128x128/apps/com.lmaxyz.Habre.png", mode = "644" },
-    { source = "rpm/icons/172x172/com.lmaxyz.Habre.png", dest = "/usr/share/icons/hicolor/172x172/apps/com.lmaxyz.Habre.png", mode = "644" },
+    { source = "target/aarch64-unknown-linux-gnu/release/haboost", dest = "/usr/bin/com.lmaxyz.Haboost", mode = "755" },
+    { source = "rpm/com.lmaxyz.Haboost.desktop", dest = "/usr/share/applications/com.lmaxyz.Haboost.desktop", mode = "644" },
+    { source = "rpm/icons/86x86/com.lmaxyz.Haboost.png", dest = "/usr/share/icons/hicolor/86x86/apps/com.lmaxyz.Haboost.png", mode = "644" },
+    { source = "rpm/icons/108x108/com.lmaxyz.Haboost.png", dest = "/usr/share/icons/hicolor/108x108/apps/com.lmaxyz.Haboost.png", mode = "644" },
+    { source = "rpm/icons/128x128/com.lmaxyz.Haboost.png", dest = "/usr/share/icons/hicolor/128x128/apps/com.lmaxyz.Haboost.png", mode = "644" },
+    { source = "rpm/icons/172x172/com.lmaxyz.Haboost.png", dest = "/usr/share/icons/hicolor/172x172/apps/com.lmaxyz.Haboost.png", mode = "644" },
 ]
 
 [patch.crates-io]
-# winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
+winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
 # winit = { path = "../../rust/winit" }
 glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }
 

@@ -1,12 +1,12 @@
 [Desktop Entry]
 Type=Application
 X-Nemo-Application-Type=silica-qt5
-Icon=com.lmaxyz.Habre
-Exec=/usr/bin/com.lmaxyz.Habre
-Name=Habre
-Name[ru]=Habre
+Icon=com.lmaxyz.Haboost
+Exec=/usr/bin/com.lmaxyz.Haboost
+Name=Haboost
+Name[ru]=Haboost
 
 [X-Application]
 Permissions=Internet;UserDirs
 OrganizationName=com.lmaxyz
-ApplicationName=Habre
+ApplicationName=Haboost
