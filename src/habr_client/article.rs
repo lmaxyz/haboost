@@ -3,6 +3,9 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
+use super::TypedText;
+
+
 #[derive(Serialize, Deserialize, Debug)]
 pub struct LeadData {
     #[serde(alias = "textHtml")]
@@ -62,7 +65,7 @@ pub(crate) struct ArticleResponse {
 pub struct ArticleData {
     pub(crate) id: String,
     pub(crate) title: String,
-    pub(crate) tags: Vec<String>,
+    pub(crate) _tags: Vec<String>,
     pub(crate) complexity: String,
     pub(crate) author: String,
     pub(crate) published_at: String,
@@ -70,16 +73,6 @@ pub struct ArticleData {
     pub image_url: String,
 }
 
-
-#[derive(Debug, Clone)]
-pub enum TypedText {
-    Common(String),
-    Code(String),
-    Link {
-        url: String,
-        value: String
-    },
-}
 
 pub enum ArticleContent {
     Image(String),

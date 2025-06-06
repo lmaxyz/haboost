@@ -6,7 +6,7 @@ use std::str::FromStr;
 pub mod article;
 pub mod hub;
 
-use article::{ArticleContent, ArticleData, ArticleResponse, ArticlesResponse, TypedText};
+use article::{ArticleContent, ArticleData, ArticleResponse, ArticlesResponse};
 
 type PagesCount = usize;
 
@@ -84,7 +84,7 @@ impl HabrClient {
                     author: a.author.map_or("".to_string(), |a| a.alias),
                     reading_time: a.reading_time,
                     published_at: format!("{}", published_at.format("%d.%m.%Y %H:%M")),
-                    tags: a.tags.into_iter().map(|t| t.title).collect(),
+                    _tags: a.tags.into_iter().map(|t| t.title).collect(),
                     complexity: a.complexity.unwrap_or(String::new()),
                     image_url: a.lead_data.image_url.unwrap_or("".to_string()),
                 }
@@ -93,6 +93,21 @@ impl HabrClient {
 
         Ok((articles, resp_parsed.pages_count))
     }
+}
+
+fn extract_text_from_html(input: &str) -> String {
+    let html = Html::parse_fragment(&input);
+    // if let Some(first_child) = html.root_element().first_child() {
+    //     if let Some(txt) = first_child.value().as_text() {
+    //         return TypedText::Common(txt.to_string())
+    //     } else if let Some(elem) = first_child.value().as_element() {
+    //         match elem.name() {
+    //             "em" => return TypedText::Italic(first_child.first_child().map_or("".to_string(), |item| item.value().as_text().unwrap().to_string())),
+    //             _ => {}
+    //         }
+    //     }
+    // }
+    get_element_text(&html.root_element())
 }
 
 async fn extract_content_from_html(text: String) -> Vec<ArticleContent> {
@@ -151,6 +166,20 @@ fn extract_paragraph_content<'a>(element: &ElementRef<'a>) -> Vec<TypedText> {
                         };
                         println!("Link inside paragraph: {:?}", link);
                         return Some(link)
+                    },
+                    "i" => {
+                        if let Some(text_item) = child.first_child() {
+                            if let Some(text) = text_item.value().as_text() {
+                                return Some(TypedText::Italic(text.to_string()))
+                            }
+                        }
+                    },
+                    "strong" => {
+                        if let Some(text_item) = child.first_child() {
+                            if let Some(text) = text_item.value().as_text() {
+                                return Some(TypedText::Strong(text.to_string()))
+                            }
+                        }
                     }
                     _tag_name => {}
                 }
@@ -213,4 +242,17 @@ impl TryFrom<ElementRef<'_>> for ArticleContent {
     fn try_from(element: ElementRef<'_>) -> Result<Self, Self::Error> {
         (&element).try_into()
     }
+}
+
+
+#[derive(Debug, Clone)]
+pub enum TypedText {
+    Common(String),
+    Code(String),
+    Link {
+        url: String,
+        value: String
+    },
+    Italic(String),
+    Strong(String),
 }

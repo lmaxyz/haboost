@@ -1,4 +1,4 @@
-use eframe::egui::{self, Button, Color32, Frame, Image, Label, Layout, Margin, Response, RichText, Sense, Ui, UiBuilder, Widget};
+use eframe::egui::{self, Button, Color32, Frame, Grid, Image, Label, Layout, Response, RichText, Sense, Ui, UiBuilder, Widget};
 use egui_flex::{item, Flex};
 
 use crate::habr_client::{article::ArticleData, hub::HubItem};
@@ -106,22 +106,18 @@ impl ArticleListItem {
         ui.scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
             frame.show(ui, |ui| {
                 ui.with_layout(Layout::top_down(egui::Align::Min).with_cross_justify(true), |ui| {
-                    ui.horizontal(|ui| {
-                        ui.with_layout(Layout::top_down(egui::Align::Min), |ui| {
-                            let author_txt = RichText::new(article.author.as_str())
-                                .strong()
-                                .size(18.)
-                                .color(Color32::CYAN);
+                    let author_txt = RichText::new(article.author.as_str())
+                        .strong()
+                        .size(18.)
+                        .color(Color32::CYAN);
 
-                            Label::new(author_txt)
-                                .selectable(false)
-                                .ui(ui);
+                    Label::new(author_txt)
+                        .selectable(false)
+                        .ui(ui);
 
-                            Label::new(RichText::new(article.published_at.as_str()).size(16.).color(Color32::LIGHT_GRAY))
-                                .selectable(false)
-                                .ui(ui);
-                        });
-                    });
+                    Label::new(RichText::new(article.published_at.as_str()).size(16.).color(Color32::LIGHT_GRAY))
+                        .selectable(false)
+                        .ui(ui);
 
                     if !article.image_url.is_empty() {
                         let img_width = ui.available_width() - ui.spacing().item_spacing.x * 2.;
@@ -133,23 +129,29 @@ impl ArticleListItem {
                         });
                     }
 
-                    match article.complexity.as_str() {
-                        "low" => {
-                            Label::new(RichText::new("Простой 😴").size(20.).strong().color(Color32::GREEN))
-                                .selectable(false)
-                                .ui(ui);
-                        },
-                        "medium" => {
-                            Label::new(RichText::new("Средний 👍").size(20.).strong().color(Color32::GOLD))
-                                .selectable(false)
-                                .ui(ui);
-                        },
-                        _ => {
-                            Label::new(RichText::new("Сложный ☠").size(20.).strong().color(Color32::RED))
-                                .selectable(false)
-                                .ui(ui);
+                    Grid::new(&article.id).num_columns(2).show(ui, |ui| {
+                        match article.complexity.as_str() {
+                            "low" => {
+                                Label::new(RichText::new("Простой 😴").size(20.).strong().color(Color32::GREEN))
+                                    .selectable(false)
+                                    .ui(ui);
+                            },
+                            "medium" => {
+                                Label::new(RichText::new("Средний 👍").size(20.).strong().color(Color32::GOLD))
+                                    .selectable(false)
+                                    .ui(ui);
+                            },
+                            "high" => {
+                                Label::new(RichText::new("Сложный ☠").size(20.).strong().color(Color32::RED))
+                                    .selectable(false)
+                                    .ui(ui);
+                            },
+                            _ => {
+                            }
                         }
-                    }
+                        ui.label(RichText::new(format!("{} мин", article.reading_time)).size(18.));
+                    });
+
 
                     // ui.horizontal_wrapped(|ui| {
                     //     for tag in article.tags.iter() {

@@ -54,6 +54,7 @@ pub async fn get_hubs(page: u8, search_text: String) -> Result<(Vec<HubItem>, us
     let mut hubs: Vec<HubItem> = resp_parsed.hub_refs.into_values().collect();
 
     hubs.sort_by(|f, s| f.title.cmp(&s.title));
+    hubs.iter_mut().for_each(|h| h.title = crate::habr_client::extract_text_from_html(&h.title) );
 
     Ok((hubs, resp_parsed.pages_count))
 }

@@ -7,8 +7,8 @@ use eframe::egui::{Color32, Context, Image, Label, Layout, OpenUrl, RichText, Sc
 use tokio::runtime::Runtime;
 
 use crate::HabreState;
-use crate::habr_client::HabrClient;
-use crate::habr_client::article::{ArticleContent, TypedText};
+use crate::habr_client::{HabrClient, TypedText};
+use crate::habr_client::article::{ArticleContent};
 
 
 pub struct ArticleDetails {
@@ -96,6 +96,12 @@ impl ArticleDetails {
                                             },
                                             TypedText::Common(text) => {
                                                 ui.add(Label::new(RichText::new(text).size(20.)).wrap().selectable(false));
+                                            },
+                                            TypedText::Italic(text) => {
+                                                ui.add(Label::new(RichText::new(text).size(20.).italics()).wrap().selectable(false));
+                                            },
+                                            TypedText::Strong(text) => {
+                                                ui.add(Label::new(RichText::new(text).size(20.).strong()).wrap().selectable(false));
                                             }
                                         }
                                     }

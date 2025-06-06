@@ -111,8 +111,8 @@ impl HubsList {
     fn search_ui(&mut self, ui: &mut Ui) {
         let search_edit = TextEdit::singleline(&mut self.search_text)
             .desired_width(f32::INFINITY)
-            .font(egui::epaint::text::FontId::monospace(24.))
-            .hint_text_font(egui::epaint::text::FontId::monospace(24.))
+            .font(egui::epaint::text::FontId::proportional(26.))
+            .hint_text_font(egui::epaint::text::FontId::proportional(26.))
             .hint_text("Поиск")
             .show(ui).response;
 
