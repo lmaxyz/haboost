@@ -5,15 +5,11 @@ Haboost - это ограниченный неофициальный клиен�
 Приложение написано в качестве демонстрации возможности разработки под ОС Аврора (и, возможно, Sailfish OS) с использованием языка Rust и библиотеки [egui](https://github.com/emilk/egui).
 
 ## Скриншоты с устройства R570E
-<details>
-    <summary>Скрины</summary>
 
-  <img src="screenshots/1.png" alt="screenshot 1" width=200>
-  <img src="screenshots/2.png" alt="screenshot 2" width=200>
-  <img src="screenshots/3.png" alt="screenshot 3" width=200>
-  <img src="screenshots/4.png" alt="screenshot 4" width=200>
-
-</details>
+<img src="screenshots/1.png" alt="screenshot 1" width=200>
+<img src="screenshots/2.png" alt="screenshot 2" width=200>
+<img src="screenshots/3.png" alt="screenshot 3" width=200>
+<img src="screenshots/4.png" alt="screenshot 4" width=200>
 
 ## Roadmap
 
