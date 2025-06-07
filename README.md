@@ -50,18 +50,4 @@ winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
 glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }
 ```
 
-## License
-
-Copyright 2025 Leiman Maksim
-
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
-
-    http://www.apache.org/licenses/LICENSE-2.0
-
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+Также я для сборки использую [cross](https://github.com/cross-rs/cross), поэтому рекомендую его установить, если хотите использовать для сборки скрипты из этого репозитория.
