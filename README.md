@@ -6,10 +6,12 @@ Haboost - это ограниченный неофициальный клиен�
 
 ## Скриншоты с устройства R570E
 
-<img src="screenshots/1.png" alt="screenshot 1" width=200>
-<img src="screenshots/2.png" alt="screenshot 2" width=200>
-<img src="screenshots/3.png" alt="screenshot 3" width=200>
-<img src="screenshots/4.png" alt="screenshot 4" width=200>
+<div align="center">
+    <img src="screenshots/1.png" alt="screenshot 1" width=200>
+    <img src="screenshots/2.png" alt="screenshot 2" width=200>
+    <img src="screenshots/3.png" alt="screenshot 3" width=200>
+    <img src="screenshots/4.png" alt="screenshot 4" width=200>
+</div>
 
 ## Roadmap
 
