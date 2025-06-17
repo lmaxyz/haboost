@@ -1,6 +1,6 @@
 [package]
 name = "haboost"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
@@ -51,7 +51,7 @@ summary = "Egui Habr client"
 release = "1"
 url = "https://github.com/lmaxyz/habre"
 assets = [
-    { source = "target/aarch64-unknown-linux-gnu/release/haboost", dest = "/usr/bin/com.lmaxyz.Haboost", mode = "755" },
+    { source = "target/release/haboost", dest = "/usr/bin/com.lmaxyz.Haboost", mode = "755" },
     { source = "rpm/com.lmaxyz.Haboost.desktop", dest = "/usr/share/applications/com.lmaxyz.Haboost.desktop", mode = "644" },
     { source = "rpm/icons/86x86/com.lmaxyz.Haboost.png", dest = "/usr/share/icons/hicolor/86x86/apps/com.lmaxyz.Haboost.png", mode = "644" },
     { source = "rpm/icons/108x108/com.lmaxyz.Haboost.png", dest = "/usr/share/icons/hicolor/108x108/apps/com.lmaxyz.Haboost.png", mode = "644" },
@@ -60,7 +60,7 @@ assets = [
 ]
 
 [patch.crates-io]
-winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
+# winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
 # winit = { path = "../../rust/winit" }
 glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }
 
