@@ -41,6 +41,7 @@ tokio = { version = "1.41.0", default-features = false, features = [
 ] }
 scraper = "0.23"
 chrono = "0.4"
+toml = "0.8"
 
 [profile.release]
 strip = true
@@ -61,7 +62,7 @@ assets = [
 ]
 
 [patch.crates-io]
-# winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
+winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
 # winit = { path = "../../rust/winit" }
 glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }
 

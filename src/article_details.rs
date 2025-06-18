@@ -91,6 +91,7 @@ impl ArticleDetails {
                                             },
                                             TypedText::Link { url, value } => {
                                                 if ui.link(RichText::new(value).size(20.).color(Color32::CYAN)).clicked() {
+                                                    // ToDo: Add Aurora OS url open call
                                                     ctx.open_url(OpenUrl::new_tab(url));
                                                 }
                                             },
@@ -105,14 +106,6 @@ impl ArticleDetails {
                                             }
                                         }
                                     }
-                                    // match text_type {
-                                    //     TextType::Link(url) => {
-                                    //         if ui.link(RichText::new(txt).size(20.).color(Color32::CYAN)).clicked() {
-                                    //             _ctx.open_url(OpenUrl::new_tab(url));
-                                    //         }
-                                    //     }
-                                    //     _ => { ui.add(Label::new(RichText::new(txt).size(20.)).wrap().selectable(false)); }
-                                    // }
                                 });
                             },
                             ArticleContent::Image(src) => {

@@ -60,6 +60,11 @@ impl HubsList {
         let paging_height = 50.;
         ui.with_layout(Layout::top_down(eframe::egui::Align::Center), |ui| {
             ui.label(RichText::new("Хабы").size(32.));
+
+            if ui.put(egui::Rect::from_min_max((10.,10.).into(), (50.,50.).into()), egui::Button::new(RichText::new("⚙").size(32.))).clicked() {
+                self.habre_state.borrow_mut().settings_active = true;
+            }
+
             ui.separator();
 
             self.search_ui(ui);

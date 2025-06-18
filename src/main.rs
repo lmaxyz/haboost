@@ -8,11 +8,13 @@ mod hubs_list;
 mod articles_list;
 mod article_details;
 mod widgets;
+mod settings;
 // mod utils;
 
 use hubs_list::HubsList;
 use articles_list::ArticlesList;
 use article_details::ArticleDetails;
+use settings::Settings;
 
 use habr_client::article::ArticleData;
 
@@ -39,6 +41,7 @@ struct MyApp {
     hubs_list: HubsList,
     articles_list: Rc<RefCell<ArticlesList>>,
     article_details: Rc<RefCell<ArticleDetails>>,
+    settings: Settings,
     backward: Backward,
 }
 
@@ -71,6 +74,7 @@ impl Default for MyApp {
             hubs_list,
             articles_list,
             article_details,
+            settings: Settings::read_from_file(),
             backward: Backward::default()
         }
     }
@@ -79,23 +83,29 @@ impl Default for MyApp {
 impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
-            #[cfg(target_arch = "arm")]
-            ctx.set_pixels_per_point(1.5);
+            ctx.set_pixels_per_point(self.settings.scale_factor());
             ui.spacing_mut().item_spacing = egui::Vec2::new(15., 15.);
 
             self.backward.check_input(ui);
 
             if self.backward.activated() {
-               if self.state.borrow().selected_hub_id.is_empty() {
-                   // Do nothing
-               } else if self.state.borrow().selected_article.is_none() {
-                   self.state.borrow_mut().selected_hub_id = String::new();
-               } else {
-                   self.state.borrow_mut().selected_article = None;
-               }
+                let mut state = self.state.borrow_mut();
+                if state.settings_active {
+                    state.settings_active = false;
+                }
+                if state.selected_hub_id.is_empty() {
+                    // Do nothing
+                } else if state.selected_article.is_none() {
+                    state.selected_hub_id = String::new();
+                } else {
+                    state.selected_article = None;
+                }
             }
 
-            if self.state.borrow().selected_hub_id.is_empty() {
+            if self.state.borrow().settings_active {
+                self.settings.ui(ui);
+                self.backward.ui(ui);
+            } else if self.state.borrow().selected_hub_id.is_empty() {
                 self.hubs_list.ui(ui, ctx);
             } else if self.state.borrow().selected_article.is_none() {
                 self.articles_list.borrow_mut().ui(ui, ctx);
@@ -104,8 +114,6 @@ impl eframe::App for MyApp {
                 self.article_details.borrow_mut().ui(ui, ctx);
                 self.backward.ui(ui);
             }
-
-
         });
     }
 }
@@ -194,6 +202,7 @@ impl Default for Backward {
 struct HabreState {
     selected_hub_id: String,
     selected_hub_title: String,
+    settings_active: bool,
 
     selected_article: Option<ArticleData>,
 }
