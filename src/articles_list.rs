@@ -3,8 +3,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use tokio::runtime::Runtime;
-use eframe::egui::{Context, Label, Layout, RichText, ScrollArea, Spinner, Ui, Widget};
-use egui_flex::{Flex, item};
+use eframe::egui::{Align, Context, Label, Layout, RichText, ScrollArea, Spinner, Ui};
+use egui_taffy::{taffy::{self, AlignContent, Style}, tui, TuiBuilderLogic};
 
 use crate::{habr_client::{article::ArticleData, HabrClient}, HabreState};
 use crate::widgets::{Pager, ArticleListItem};
@@ -52,34 +52,41 @@ impl ArticlesList {
     }
 
     pub fn ui(&mut self, ui: &mut Ui, _ctx: &Context) {
-        Flex::vertical()
-            .h_full()
-            .w_full()
-            .show(ui, |f_ui| {
-                f_ui.add_ui(item().grow(1.), |ui| {
-                    ui.vertical_centered_justified(|ui| {
-                        ui.with_layout(Layout::top_down(eframe::egui::Align::Center).with_main_wrap(true), |ui| {
-                            Label::new(RichText::new(self.habre_state.borrow().selected_hub_title.as_str()).size(32.)).ui(ui)
-                        });
-                        ui.separator();
-                    });
+        tui(ui, ui.id().with("articles_list"))
+            .reserve_available_space()
+            .style(taffy::Style {
+                justify_content: Some(AlignContent::SpaceBetween),
+                flex_direction: taffy::FlexDirection::Column,
+                gap: taffy::Size {width: taffy::LengthPercentage::Length(15.), height: taffy::LengthPercentage::Length(10.)},
+                size: taffy::Size {
+                    width: taffy::Dimension::Percent(1.),
+                    height: taffy::Dimension::Percent(1.),
+                },
+                ..Default::default()
+            })
+            .show(|tui| {
+                tui.style(Style {
+                        flex_direction: taffy::FlexDirection::Column,
+                        ..Default::default()}
+                ).add(|ui| {
+                    ui.egui_layout(Layout::default().with_cross_align(Align::Center))
+                        .ui_add(Label::new(RichText::new(self.habre_state.borrow().selected_hub_title.as_str()).size(32.)));
+                    ui.separator();
                 });
+
                 if self.is_loading.load(Ordering::Relaxed) {
-                    f_ui.add(item().grow(1.), Spinner::new().size(50.));
+                    tui.egui_layout(Layout::default().with_cross_align(Align::Center)).ui_add(Spinner::new().size(50.));
                 } else {
                     let mut scroll_area = ScrollArea::vertical()
-                        // .auto_shrink(true)
-                        .max_height(f_ui.ui().available_height() - 50.)
                         .scroll_bar_visibility(
                             eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
                         );
-
                     if self.reset_scroll {
                         scroll_area = scroll_area.vertical_scroll_offset(0.);
                         self.reset_scroll = false;
                     }
 
-                    f_ui.add_ui(item().grow(1.), |ui| {
+                    tui.style(Style{size: taffy::Size::from_percent(1., 1.), ..Default::default()}).ui(|ui| {
                         scroll_area.show(ui, |ui| {
                             for article in self.articles.read().unwrap().iter() {
                                 ui.horizontal_top(|ui| {
@@ -95,7 +102,7 @@ impl ArticlesList {
                     });
                 };
 
-                f_ui.add_ui(item().grow(1.), |ui| {
+                tui.ui(|ui| {
                     if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui, _ctx).changed() {
                         self.get_articles();
                     }

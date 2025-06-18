@@ -1,5 +1,5 @@
 use eframe::egui::{self, Button, Color32, Frame, Grid, Image, Label, Layout, Response, RichText, Sense, Ui, UiBuilder, Widget};
-use egui_flex::{item, Flex};
+use egui_taffy::{taffy::{self, prelude::TaffyZero}, tui, TuiBuilderLogic};
 
 use crate::habr_client::{article::ArticleData, hub::HubItem};
 
@@ -20,38 +20,47 @@ impl<'a> Pager<'a> {
     }
 
     pub fn ui(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context) -> egui::Response {
-        let mut resp = Flex::horizontal()
-            .w_full()
-            .align_content(egui_flex::FlexAlignContent::SpaceBetween)
-            .justify(egui_flex::FlexJustify::Start)
-            .show(ui, |flex_ui| {
+        let mut resp = tui(ui, ui.id().with("pager")).reserve_available_width()
+            .style(taffy::Style {
+                flex_direction: taffy::FlexDirection::Row,
+                justify_content: Some(taffy::AlignContent::SpaceBetween),
+                size: taffy::Size {
+                    width: taffy::Dimension::Percent(1.),
+                    height: taffy::Dimension::Length(40.)
+                },
+                gap: taffy::Size {
+                    width: taffy::LengthPercentage::Percent(0.1),
+                    height: taffy::LengthPercentage::ZERO
+                },
+                ..Default::default()
+            }).show(|tui| {
                 let prev_button = Button::new(RichText::new("<").size(28.0))
                     .corner_radius(50.);
 
-                if flex_ui.add(item().grow(2.), prev_button).clicked() {
+                if tui.style(taffy::Style{flex_grow:1., ..Default::default()}).ui_add(prev_button).clicked() {
                     self.prev_page();
                 }
 
-                flex_ui.add(
-                    item().grow(1.),
+                let label = tui.style(taffy::Style{flex_grow:1., ..Default::default()}).ui_add(
                     Label::new(
                         RichText::new(format!("{}/{}", self.current_page, self.max_page)).size(32.),
-                    ),
+                    ).extend(),
                 );
 
                 let next_button = Button::new(RichText::new(">").size(28.0))
                     .corner_radius(50.0);
 
-                if flex_ui.add(item().grow(2.), next_button).clicked() {
+                if tui.style(taffy::Style{flex_grow:1., ..Default::default()}).ui_add(next_button).clicked() {
                     self.next_page();
                 }
+                label
             });
 
         if self.changed {
-            resp.response.mark_changed();
+            resp.mark_changed();
         }
 
-        resp.response
+        resp
     }
 
     fn next_page(&mut self) {

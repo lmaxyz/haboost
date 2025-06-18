@@ -14,7 +14,8 @@ egui_extras = { version = "0.31", default-features = false, features = [
     "image",
     "http",
 ] }
-egui_flex = "0.3"
+# egui_flex = "0.3"
+egui_taffy = "0.7"
 
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
@@ -60,7 +61,7 @@ assets = [
 ]
 
 [patch.crates-io]
-# winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
+winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
 # winit = { path = "../../rust/winit" }
 glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }
 
