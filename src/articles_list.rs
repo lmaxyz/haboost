@@ -4,7 +4,7 @@ use std::cell::RefCell;
 
 use tokio::runtime::Runtime;
 use eframe::egui::{Align, Context, Label, Layout, RichText, ScrollArea, Spinner, Ui};
-use egui_taffy::{taffy::{self, AlignContent, Style}, tui, TuiBuilderLogic};
+use egui_taffy::{taffy::{self, prelude::TaffyZero, AlignContent, Size, Style}, tui, TuiBuilderLogic};
 
 use crate::{habr_client::{article::ArticleData, HabrClient}, HabreState};
 use crate::widgets::{Pager, ArticleListItem};
@@ -67,6 +67,7 @@ impl ArticlesList {
             .show(|tui| {
                 tui.style(Style {
                         flex_direction: taffy::FlexDirection::Column,
+                        gap: Size { height: taffy::LengthPercentage::Length(10.), width: taffy::LengthPercentage::ZERO },
                         ..Default::default()}
                 ).add(|ui| {
                     ui.egui_layout(Layout::default().with_cross_align(Align::Center))

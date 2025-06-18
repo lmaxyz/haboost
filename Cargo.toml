@@ -61,7 +61,7 @@ assets = [
 ]
 
 [patch.crates-io]
-winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
+# winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
 # winit = { path = "../../rust/winit" }
 glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }
 

@@ -141,24 +141,24 @@ impl ArticleListItem {
                     Grid::new(&article.id).num_columns(2).show(ui, |ui| {
                         match article.complexity.as_str() {
                             "low" => {
-                                Label::new(RichText::new("Простой 😴").size(20.).strong().color(Color32::GREEN))
+                                Label::new(RichText::new("😴 Простой").size(20.).strong().color(Color32::GREEN))
                                     .selectable(false)
                                     .ui(ui);
                             },
                             "medium" => {
-                                Label::new(RichText::new("Средний 👍").size(20.).strong().color(Color32::GOLD))
+                                Label::new(RichText::new("👍 Средний").size(20.).strong().color(Color32::GOLD))
                                     .selectable(false)
                                     .ui(ui);
                             },
                             "high" => {
-                                Label::new(RichText::new("Сложный ☠").size(20.).strong().color(Color32::RED))
+                                Label::new(RichText::new("☠ Сложный").size(20.).strong().color(Color32::RED))
                                     .selectable(false)
                                     .ui(ui);
                             },
                             _ => {
                             }
                         }
-                        ui.label(RichText::new(format!("{} мин", article.reading_time)).size(18.));
+                        ui.label(RichText::new(format!("🕑 {} мин", article.reading_time)).size(20.));
                     });
 
 
