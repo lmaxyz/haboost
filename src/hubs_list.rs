@@ -72,6 +72,7 @@ impl HubsList {
 
             if ui.allocate_rect(new_rect, egui::Sense::CLICK).clicked() {
                 self.search_text.clear();
+                self.search_was_changed = true;
             }
 
             let painter = ui.painter_at(new_rect);
