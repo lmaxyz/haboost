@@ -5,15 +5,16 @@ use std::{
     }
 };
 
-use eframe::egui::{self, Context, Layout, RichText, ScrollArea, Spinner, TextEdit, Ui, Vec2};
+use eframe::egui::{self, Layout, RichText, ScrollArea, Spinner, TextEdit, Ui, Vec2};
 use tokio::runtime::Runtime;
 
 use crate::{habr_client::hub::{get_hubs, HubItem}, HabreState};
 use crate::widgets::{Pager, HubListItem};
+use crate::{UiView, ViewStack};
 
 pub struct HubsList {
     pub is_loading: Arc<AtomicBool>,
-    hub_selected_cb: Option<Box<dyn FnMut(String)>>,
+    hub_selected_cb: Option<Box<dyn FnMut(String, &mut ViewStack)>>,
 
     search_text: String,
     search_was_changed: bool,
@@ -52,65 +53,8 @@ impl HubsList {
     }
 
     pub fn on_hub_selected<F>(&mut self, callback: F)
-    where F: FnMut(String) + 'static {
+    where F: FnMut(String, &mut ViewStack) + 'static {
         self.hub_selected_cb = Some(Box::new(callback));
-    }
-
-    pub fn ui(&mut self, ui: &mut Ui, _ctx: &Context) {
-        let paging_height = 50.;
-        ui.with_layout(Layout::top_down(eframe::egui::Align::Center), |ui| {
-            ui.label(RichText::new("Хабы").size(32.));
-
-            if ui.put(egui::Rect::from_min_max((10.,10.).into(), (50.,50.).into()), egui::Button::new(RichText::new("⚙").size(32.))).clicked() {
-                self.habre_state.borrow_mut().settings_active = true;
-            }
-
-            ui.separator();
-
-            self.search_ui(ui);
-
-            if self.is_loading.load(Ordering::Relaxed) {
-                ui.add_sized(
-                    ui.available_size() - Vec2::new(0., paging_height),
-                    Spinner::new().size(50.),
-                );
-            } else {
-                let mut scroll_area = ScrollArea::vertical()
-                    .auto_shrink(false)
-                    .scroll_bar_visibility(
-                        eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
-                    )
-                    .max_height(ui.available_height() - paging_height);
-
-                if self.reset_scroll_area {
-                    scroll_area = scroll_area.vertical_scroll_offset(0.);
-                    self.reset_scroll_area = false;
-                }
-
-                scroll_area.show(ui, |ui| {
-                    for hub in self.hubs.read().unwrap().iter() {
-                        if HubListItem::ui(ui, hub).clicked() {
-                            {
-                                let mut state = self.habre_state.borrow_mut();
-                                state.selected_hub_id = hub.alias.clone();
-                                state.selected_hub_title = hub.title.clone();
-                            }
-
-                            self.hub_selected_cb.as_mut().map(|cb| {
-                                cb(hub.id.clone());
-                            });
-                        }
-
-                        ui.separator();
-                    }
-                });
-            };
-
-            if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui, _ctx).changed() {
-                self.get_hubs();
-                self.reset_scroll_area = true;
-            };
-        });
     }
 
     fn search_ui(&mut self, ui: &mut Ui) {
@@ -120,6 +64,20 @@ impl HubsList {
             .hint_text_font(egui::epaint::text::FontId::proportional(26.))
             .hint_text("Поиск")
             .show(ui).response;
+
+        if search_edit.has_focus() && !self.search_text.is_empty() {
+            let mut new_rect = search_edit.rect.clone();
+            new_rect.set_left(search_edit.rect.right()-search_edit.rect.height());
+            new_rect = new_rect.shrink(5.);
+
+            if ui.allocate_rect(new_rect, egui::Sense::CLICK).clicked() {
+                self.search_text.clear();
+            }
+
+            let painter = ui.painter_at(new_rect);
+            painter.line_segment([new_rect.left_top(), new_rect.right_bottom()], egui::Stroke::new(3.0, egui::Color32::LIGHT_GRAY));
+            painter.line_segment([new_rect.right_top(), new_rect.left_bottom()], egui::Stroke::new(3.0, egui::Color32::LIGHT_GRAY));
+        }
 
         if search_edit.lost_focus() && self.search_was_changed {
             self.current_page = 1;
@@ -154,6 +112,64 @@ impl HubsList {
                 }
             }
             hubs
+        });
+    }
+}
+
+impl UiView for HubsList {
+    fn ui(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context, view_stack: &mut ViewStack) {
+        let paging_height = 50.;
+        ui.with_layout(Layout::top_down(eframe::egui::Align::Center), |ui| {
+            ui.label(RichText::new("Хабы").size(32.));
+
+            if ui.put(egui::Rect::from_min_max((10.,10.).into(), (50.,50.).into()), egui::Button::new(RichText::new("⚙").size(32.))).clicked() {
+                view_stack.push(self.habre_state.borrow().settings.clone());
+            }
+
+            ui.separator();
+            self.search_ui(ui);
+
+            if self.is_loading.load(Ordering::Relaxed) {
+                ui.add_sized(
+                    ui.available_size() - Vec2::new(0., paging_height),
+                    Spinner::new().size(50.),
+                );
+            } else {
+                let mut scroll_area = ScrollArea::vertical()
+                    .auto_shrink(false)
+                    .scroll_bar_visibility(
+                        eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
+                    )
+                    .max_height(ui.available_height() - paging_height);
+
+                if self.reset_scroll_area {
+                    scroll_area = scroll_area.vertical_scroll_offset(0.);
+                    self.reset_scroll_area = false;
+                }
+
+                scroll_area.show(ui, |ui| {
+                    for hub in self.hubs.read().unwrap().iter() {
+                        if HubListItem::ui(ui, hub).clicked() {
+                            {
+                                let mut state = self.habre_state.borrow_mut();
+                                state.selected_hub_id = hub.alias.clone();
+                                state.selected_hub_title = hub.title.clone();
+                            }
+
+                            self.hub_selected_cb.as_mut().map(|cb| {
+                                cb(hub.id.clone(), view_stack);
+                            });
+                        }
+
+                        ui.separator();
+                    }
+                });
+            };
+
+            if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui).changed() {
+                self.get_hubs();
+                self.reset_scroll_area = true;
+            };
         });
     }
 }

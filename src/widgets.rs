@@ -19,7 +19,7 @@ impl<'a> Pager<'a> {
         }
     }
 
-    pub fn ui(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context) -> egui::Response {
+    pub fn ui(&mut self, ui: &mut egui::Ui) -> egui::Response {
         let mut resp = tui(ui, ui.id().with("pager")).reserve_available_width()
             .style(taffy::Style {
                 flex_direction: taffy::FlexDirection::Row,
@@ -129,48 +129,87 @@ impl ArticleListItem {
                         .ui(ui);
 
                     if !article.image_url.is_empty() {
-                        let img_width = ui.available_width() - ui.spacing().item_spacing.x * 2.;
                         ui.with_layout(Layout::top_down_justified(egui::Align::Center), |ui| {
                             Image::new(article.image_url.as_str())
-                                .fit_to_exact_size((img_width, img_width/2.).into())
-                                .max_width(img_width)
+                                // .fit_to_exact_size((img_width, img_width/2.).into())
+                                .max_width(ui.available_width())
+                                .fit_to_original_size(1.)
                                 .ui(ui);
                         });
                     }
 
                     Grid::new(&article.id).num_columns(2).show(ui, |ui| {
-                        match article.complexity.as_str() {
+                        if let Some((label, color)) = match article.complexity.as_str() {
                             "low" => {
-                                Label::new(RichText::new("😴 Простой").size(20.).strong().color(Color32::GREEN))
-                                    .selectable(false)
-                                    .ui(ui);
+                                Some(("😴 Простой", Color32::GREEN))
                             },
                             "medium" => {
-                                Label::new(RichText::new("👍 Средний").size(20.).strong().color(Color32::GOLD))
-                                    .selectable(false)
-                                    .ui(ui);
+                                Some(("👍 Средний", Color32::GOLD))
                             },
                             "high" => {
-                                Label::new(RichText::new("☠ Сложный").size(20.).strong().color(Color32::RED))
-                                    .selectable(false)
-                                    .ui(ui);
+                                Some(("☠ Сложный", Color32::RED))
                             },
                             _ => {
+                                None
                             }
-                        }
-                        ui.label(RichText::new(format!("🕑 {} мин", article.reading_time)).size(20.));
+                        } {
+                            Label::new(RichText::new(label).size(20.).strong().color(color))
+                                .selectable(false)
+                                .ui(ui);
+                        };
+
+                        ui.label(RichText::new(format!("🕑 {} мин", article.reading_time)).size(20.).color(Color32::LIGHT_GRAY));
                     });
 
-
+                    // tui(ui, "tags").reserve_available_width()
+                    //     .style(Style {
+                    //         flex_direction: FlexDirection::Column,
+                    //         flex_wrap: taffy::FlexWrap::Wrap,
+                    //         flex_grow: 1.,
+                    //         justify_content: Some(taffy::AlignContent::Center),
+                    //         size: taffy::Size {
+                    //             width: taffy::Dimension::Percent(1.),
+                    //             height: taffy::Dimension::AUTO,
+                    //         },
+                    //         // max_size: taffy::Size {
+                    //         //     width: taffy::Dimension::Percent(1.),
+                    //         //     height: taffy::Dimension::Length(100.),
+                    //         // },
+                    //         // padding: taffy::Rect::percent(8.),
+                    //         gap: taffy::Size::length(8.),
+                    //         justify_items: Some(taffy::AlignItems::Stretch),
+                    //         ..Default::default()
+                    //     }).show(|tui| {
+                    //         for tag in article.tags.iter() {
+                    //             tui.style(Style {
+                    //                 flex_direction: FlexDirection::Column,
+                    //                 flex_grow: 1.,
+                    //                 justify_content: Some(taffy::AlignContent::Center),
+                    //                 align_items: Some(taffy::AlignItems::Center),
+                    //                 // flex_wrap: taffy::FlexWrap::NoWrap,
+                    //                 // size: taffy::Size {
+                    //                 //     width: taffy::Dimension::Percent(1.),
+                    //                 //     height: taffy::Dimension::AUTO,
+                    //                 // },
+                    //                 // padding: taffy::Rect::percent(8.),
+                    //                 // gap: taffy::Size::length(8.),
+                    //                 ..Default::default()
+                    //             }).add_with_border(|tui| {
+                    //                 tui.ui_add(egui::Label::new(RichText::new(tag).color(Color32::WHITE).size(16.)).extend());
+                    //             })
+                    //         }
+                    //     });
                     // ui.horizontal_wrapped(|ui| {
                     //     for tag in article.tags.iter() {
-                    //         Frame::NONE
+                    //         let mut tag_frame = Frame::new()
                     //             .corner_radius(15.)
                     //             .fill(Color32::LIGHT_RED)
-                    //             .inner_margin(Margin::symmetric(10, 5))
-                    //             .show(ui, |ui| {
-                    //                 Label::new(RichText::new(tag).color(Color32::WHITE).size(16.)).selectable(false).ui(ui);
-                    //             });
+                    //             .inner_margin(egui::Margin::symmetric(10, 5))
+                    //             .begin(ui);
+                    //         let frame_content = tag_frame.content_ui.add(Label::new(tag).extend().selectable(false));
+                    //         ui.allocate_space((frame_content.rect.width(), frame_content.rect.height()).into());
+
+                    //         tag_frame.end(ui);
                     //     }
                     // });
 

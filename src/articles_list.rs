@@ -3,15 +3,15 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use tokio::runtime::Runtime;
-use eframe::egui::{Align, Context, Label, Layout, RichText, ScrollArea, Spinner, Ui};
+use eframe::egui::{Align, Context, Label, Layout, RichText, ScrollArea, Spinner};
 use egui_taffy::{taffy::{self, prelude::TaffyZero, AlignContent, Size, Style}, tui, TuiBuilderLogic};
 
-use crate::{habr_client::{article::ArticleData, HabrClient}, HabreState};
+use crate::{habr_client::{article::ArticleData, HabrClient}, view_stack::{UiView, ViewStack}, HabreState};
 use crate::widgets::{Pager, ArticleListItem};
 
 pub struct ArticlesList {
     pub is_loading: Arc<AtomicBool>,
-    article_selected_cb: Option<Box<dyn FnMut(ArticleData)>>,
+    article_selected_cb: Option<Box<dyn FnMut(ArticleData, &mut ViewStack)>>,
 
     habre_state: Rc<RefCell<HabreState>>,
     reset_scroll: bool,
@@ -47,11 +47,35 @@ impl ArticlesList {
     }
 
     pub fn on_article_selected<F>(&mut self, callback: F)
-    where F: FnMut(ArticleData) + 'static {
+    where F: FnMut(ArticleData, &mut ViewStack) + 'static {
         self.article_selected_cb = Some(Box::new(callback));
     }
 
-    pub fn ui(&mut self, ui: &mut Ui, _ctx: &Context) {
+    pub fn get_articles(&mut self) {
+        self.is_loading.store(true, Ordering::Relaxed);
+        self.reset_scroll = true;
+
+        let client = self.habr_client.clone();
+        let hub_id = self.habre_state.borrow().selected_hub_id.clone();
+        let articles = self.articles.clone();
+        let max_page = self.max_page.clone();
+        let is_loading = self.is_loading.clone();
+        let current_page = self.current_page;
+
+        self.async_rt.spawn(async move {
+            let (new_articles, new_max_page) = client.get_articles(&hub_id, current_page).await.unwrap();
+            max_page.store(new_max_page as u8, Ordering::Relaxed);
+            if let Ok(mut current_articles) = articles.write() {
+                *current_articles = new_articles;
+            }
+            is_loading.store(false, Ordering::Relaxed);
+        });
+    }
+}
+
+
+impl UiView for ArticlesList {
+    fn ui(&mut self, ui: &mut eframe::egui::Ui, _ctx: &Context, view_stack: &mut crate::view_stack::ViewStack) {
         tui(ui, ui.id().with("articles_list"))
             .reserve_available_space()
             .style(taffy::Style {
@@ -79,6 +103,8 @@ impl ArticlesList {
                     tui.egui_layout(Layout::default().with_cross_align(Align::Center)).ui_add(Spinner::new().size(50.));
                 } else {
                     let mut scroll_area = ScrollArea::vertical()
+                        .max_width(tui.egui_ui().available_width())
+                        .hscroll(false)
                         .scroll_bar_visibility(
                             eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
                         );
@@ -90,13 +116,11 @@ impl ArticlesList {
                     tui.style(Style{size: taffy::Size::from_percent(1., 1.), ..Default::default()}).ui(|ui| {
                         scroll_area.show(ui, |ui| {
                             for article in self.articles.read().unwrap().iter() {
-                                ui.horizontal_top(|ui| {
-                                    ui.with_layout(Layout::top_down_justified(eframe::egui::Align::Min), |ui| {
-                                        if ArticleListItem::ui(ui, article).clicked() {
-                                            self.habre_state.borrow_mut().selected_article = Some(article.clone());
-                                            self.article_selected_cb.as_mut().map(|cb| cb(article.clone()));
-                                        }
-                                    });
+                                ui.with_layout(Layout::top_down_justified(eframe::egui::Align::Min), |ui| {
+                                    if ArticleListItem::ui(ui, article).clicked() {
+                                        self.habre_state.borrow_mut().selected_article = Some(article.clone());
+                                        self.article_selected_cb.as_mut().map(|cb| cb(article.clone(), view_stack));
+                                    }
                                 });
                             }
                         });
@@ -104,31 +128,10 @@ impl ArticlesList {
                 };
 
                 tui.ui(|ui| {
-                    if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui, _ctx).changed() {
+                    if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui).changed() {
                         self.get_articles();
                     }
                 });
             });
-    }
-
-    pub fn get_articles(&mut self) {
-        self.is_loading.store(true, Ordering::Relaxed);
-        self.reset_scroll = true;
-
-        let client = self.habr_client.clone();
-        let hub_id = self.habre_state.borrow().selected_hub_id.clone();
-        let articles = self.articles.clone();
-        let max_page = self.max_page.clone();
-        let is_loading = self.is_loading.clone();
-        let current_page = self.current_page;
-
-        self.async_rt.spawn(async move {
-            let (new_articles, new_max_page) = client.get_articles(&hub_id, current_page).await.unwrap();
-            max_page.store(new_max_page as u8, Ordering::Relaxed);
-            if let Ok(mut current_articles) = articles.write() {
-                *current_articles = new_articles;
-            }
-            is_loading.store(false, Ordering::Relaxed);
-        });
     }
 }

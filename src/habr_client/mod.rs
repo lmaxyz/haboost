@@ -84,7 +84,7 @@ impl HabrClient {
                     author: a.author.map_or("".to_string(), |a| a.alias),
                     reading_time: a.reading_time,
                     published_at: format!("{}", published_at.format("%d.%m.%Y %H:%M")),
-                    _tags: a.tags.into_iter().map(|t| t.title).collect(),
+                    tags: a.tags.into_iter().map(|t| t.title).collect(),
                     complexity: a.complexity.unwrap_or(String::new()),
                     image_url: a.lead_data.image_url.unwrap_or("".to_string()),
                 }
@@ -132,28 +132,41 @@ fn parse_content_recursively<'a>(element: ElementRef<'a>) -> Vec<ArticleContent>
     res
 }
 
+fn trim_first(index: usize, text: &str) -> String {
+    if index == 1 {
+        text.trim().to_string()
+    } else {
+        text.to_string()
+    }
+}
+
 fn extract_paragraph_content<'a>(element: &ElementRef<'a>) -> Vec<TypedText> {
     if element.value().name() == "p" && element.has_children() {
-        return element.children().filter_map(|child| {
+        return element.children().enumerate().filter_map(|(index, child)| {
             if let Some(txt) = child.value().as_text() {
-                return Some(TypedText::Common(txt.to_string()))
+                return Some(TypedText::Common(trim_first(index, txt)))
             }
             if let Some(elem) = child.value().as_element() {
-                match elem.name() {
-                    "code" => {
-                        if let Some(code_child) = child.first_child() {
-                            if let Some(code_text) = code_child.value().as_text() {
-                                return Some(TypedText::Code(code_text.to_string()))
+                if let Some(text_child) = child.first_child() {
+                    if let Some(text) = text_child.value().as_text().map(|txt| trim_first(index, txt)) {
+                        match elem.name() {
+                            "code" => {
+                                return Some(TypedText::Code(text))
+                            },
+                            "i" => {
+                                return Some(TypedText::Italic(text))
+                            },
+                            "strong" => {
+                                return Some(TypedText::Strong(text))
                             }
-                            println!("Code block with not a text child: {:?}", code_child);
+                            _tag_name => {}
                         }
-                        println!("Code block without child")
-                    },
-                    "a" => {
+                    }
+                    if elem.name() == "a" {
                         let url = elem.attr("href").unwrap().to_string();
                         let value = if let Some(link_child) = child.first_child() {
                             if let Some(link_text) = link_child.value().as_text() {
-                                link_text.to_string()
+                                trim_first(index, link_text)
                             } else {
                                 url.clone()
                             }
@@ -164,24 +177,8 @@ fn extract_paragraph_content<'a>(element: &ElementRef<'a>) -> Vec<TypedText> {
                             url,
                             value
                         };
-                        println!("Link inside paragraph: {:?}", link);
                         return Some(link)
-                    },
-                    "i" => {
-                        if let Some(text_item) = child.first_child() {
-                            if let Some(text) = text_item.value().as_text() {
-                                return Some(TypedText::Italic(text.to_string()))
-                            }
-                        }
-                    },
-                    "strong" => {
-                        if let Some(text_item) = child.first_child() {
-                            if let Some(text) = text_item.value().as_text() {
-                                return Some(TypedText::Strong(text.to_string()))
-                            }
-                        }
                     }
-                    _tag_name => {}
                 }
             }
             None
@@ -229,7 +226,7 @@ impl TryFrom<&ElementRef<'_>> for ArticleContent {
             //     TextType::Link(element.attr("href").unwrap_or("").to_string()),
             // ))},
             _tag @ _ => {
-                println!("[!] Unsupported tag: {}", _tag);
+                // println!("[!] Unsupported tag: {}", _tag);
                 Err(())
             }
         }
