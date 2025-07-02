@@ -133,8 +133,8 @@ fn parse_content_recursively<'a>(element: ElementRef<'a>) -> Vec<ArticleContent>
 }
 
 fn trim_first(index: usize, text: &str) -> String {
-    if index == 1 {
-        text.trim().to_string()
+    if index == 0 {
+        text.trim_start().to_string()
     } else {
         text.to_string()
     }
@@ -153,7 +153,7 @@ fn extract_paragraph_content<'a>(element: &ElementRef<'a>) -> Vec<TypedText> {
                             "code" => {
                                 return Some(TypedText::Code(text))
                             },
-                            "i" => {
+                            "i" | "em" => {
                                 return Some(TypedText::Italic(text))
                             },
                             "strong" => {
