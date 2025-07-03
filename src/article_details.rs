@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
-use eframe::egui::{self, Color32, Context, Image, Label, Layout, OpenUrl, RichText, ScrollArea, Spinner, Ui, Widget};
+use eframe::egui::{self, Color32, Context, Image, Label, Layout, OpenUrl, RichText, ScrollArea, Spinner, Ui};
 use tokio::runtime::Runtime;
 
 use crate::view_stack::UiView;
@@ -158,15 +158,17 @@ impl UiView for ArticleDetails {
                         }
                     }
                 });
-                ui.put(ctx.screen_rect(), |ui: &mut egui::Ui| {
-                    egui::Frame::NONE
-                        .fill(Color32::from_black_alpha(200))
-                        .outer_margin(0)
-                        .inner_margin(0)
-                        .show(ui, |ui| {
-                            self.image_viewer.ui(ui)
-                        }).response
-                });
+                if self.image_viewer.image_url.is_some() {
+                    ui.put(ctx.screen_rect(), |ui: &mut egui::Ui| {
+                        egui::Frame::NONE
+                            .fill(Color32::from_black_alpha(200))
+                            .outer_margin(0)
+                            .inner_margin(0)
+                            .show(ui, |ui| {
+                                self.image_viewer.ui(ui)
+                            }).response
+                    });
+                }
             }
         });
     }
@@ -186,7 +188,7 @@ impl ImageViewer {
         self.image_url = Some(image_url);
     }
 
-    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+    fn ui(&mut self, ui: &mut Ui) {
         if let Some(image_url) = self.image_url.as_ref() {
             let image_url = image_url.clone();
             ui.with_layout(Layout::top_down_justified(eframe::egui::Align::Center), |ui| {
@@ -207,9 +209,7 @@ impl ImageViewer {
                     .show(ui, &mut self.scene_rect, |ui| {
                         ui.add(Image::new(image_url))
                     });
-            }).response
-        } else {
-            ui.response()
+            });
         }
     }
 }

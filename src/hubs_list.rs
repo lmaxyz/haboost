@@ -123,7 +123,8 @@ impl UiView for HubsList {
         ui.with_layout(Layout::top_down(eframe::egui::Align::Center), |ui| {
             ui.label(RichText::new("Хабы").size(32.));
 
-            if ui.put(egui::Rect::from_min_max((10.,10.).into(), (50.,50.).into()), egui::Button::new(RichText::new("⚙").size(32.))).clicked() {
+
+            if ui.put(egui::Rect::from_min_size((ui.available_width()-40., 10.).into(), (45.,45.).into()), egui::Button::new(RichText::new("⚙").size(32.))).clicked() {
                 view_stack.push(self.habre_state.borrow().settings.clone());
             }
 

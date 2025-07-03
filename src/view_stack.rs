@@ -125,7 +125,7 @@ impl Backward {
     }
 
     pub fn started(&self) -> bool {
-        self.start_pos.x >= 0. && self.start_pos.x <= self.start_threshold && self.start_pos_offset.y < 50.
+        self.start_pos.x >= 0. && self.start_pos.x <= self.start_threshold && (self.start_pos_offset.y < 50. || self.start_pos_offset.x > self.start_threshold)
     }
 
     pub fn activated(&self) -> bool {
