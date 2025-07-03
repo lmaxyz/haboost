@@ -67,7 +67,7 @@ impl HubsList {
 
         if search_edit.has_focus() && !self.search_text.is_empty() {
             let mut new_rect = search_edit.rect.clone();
-            new_rect.set_left(search_edit.rect.right()-search_edit.rect.height());
+            new_rect.set_left(new_rect.right() - new_rect.height());
             new_rect = new_rect.shrink(5.);
 
             if ui.allocate_rect(new_rect, egui::Sense::CLICK).clicked() {
@@ -80,7 +80,7 @@ impl HubsList {
             painter.line_segment([new_rect.right_top(), new_rect.left_bottom()], egui::Stroke::new(3.0, egui::Color32::LIGHT_GRAY));
         }
 
-        if search_edit.lost_focus() && self.search_was_changed {
+        if !search_edit.has_focus() && self.search_was_changed {
             self.current_page = 1;
             self.get_hubs();
             self.search_was_changed = false;

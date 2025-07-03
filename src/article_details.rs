@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
-use eframe::egui::{Color32, Context, Image, Label, Layout, OpenUrl, RichText, ScrollArea, Spinner, Ui};
+use eframe::egui::{self, Color32, Context, Image, Label, Layout, OpenUrl, RichText, ScrollArea, Spinner, Ui, Widget};
 use tokio::runtime::Runtime;
 
 use crate::view_stack::UiView;
@@ -21,6 +21,7 @@ pub struct ArticleDetails {
     article_title: Arc<RwLock<String>>,
     article_content: Arc<RwLock<Vec<ArticleContent>>>,
     go_top: Arc<AtomicBool>,
+    image_viewer: ImageViewer,
 }
 
 impl ArticleDetails {
@@ -39,7 +40,8 @@ impl ArticleDetails {
             article_title: Default::default(),
             article_content: Default::default(),
             selected_code_scroll_id: None,
-            go_top: Default::default()
+            go_top: Default::default(),
+            image_viewer: ImageViewer::new(),
         }
     }
 
@@ -73,7 +75,8 @@ impl UiView for ArticleDetails {
             } else {
                 let mut scroll_area = ScrollArea::vertical()
                     .auto_shrink(false)
-                    .max_height(ui.available_height());
+                    .max_height(ui.available_height())
+                    .enable_scrolling(self.image_viewer.image_url.is_none());
 
                 if self.go_top.load(Ordering::Relaxed) {
                     scroll_area = scroll_area.vertical_scroll_offset(0.);
@@ -142,16 +145,75 @@ impl UiView for ArticleDetails {
                             },
                             ArticleContent::Image(src) => {
                                 ui.with_layout(Layout::top_down_justified(eframe::egui::Align::Center), |ui| {
-                                    ui.add(Image::new(src).fit_to_exact_size((ui.available_width(),ui.available_width()/2.).into()));
+                                    let img = Image::new(src)
+                                        .max_width(ui.available_width())
+                                        .fit_to_original_size(1.)
+                                        .sense(egui::Sense::click());
+
+                                    if ui.add(img).clicked() {
+                                        self.image_viewer.set_image_url(src.clone());
+                                    }
                                 });
                             }
                         }
                     }
                 });
+                ui.put(ctx.screen_rect(), |ui: &mut egui::Ui| {
+                    egui::Frame::NONE
+                        .fill(Color32::from_black_alpha(200))
+                        .outer_margin(0)
+                        .inner_margin(0)
+                        .show(ui, |ui| {
+                            self.image_viewer.ui(ui)
+                        }).response
+                });
             }
         });
     }
 }
+
+struct ImageViewer {
+    image_url: Option<String>,
+    scene_rect: egui::Rect,
+}
+
+impl ImageViewer {
+    fn new() -> Self {
+        Self { image_url: None, scene_rect: egui::Rect::ZERO }
+    }
+
+    fn set_image_url(&mut self, image_url: String) {
+        self.image_url = Some(image_url);
+    }
+
+    fn ui(&mut self, ui: &mut Ui) -> egui::Response {
+        if let Some(image_url) = self.image_url.as_ref() {
+            let image_url = image_url.clone();
+            ui.with_layout(Layout::top_down_justified(eframe::egui::Align::Center), |ui| {
+                let cross_rect = egui::Rect::from_center_size((ui.available_width()-25., 25.).into(), (25., 25.).into());
+
+                if ui.allocate_rect(cross_rect, egui::Sense::CLICK).clicked() {
+                    self.image_url = None;
+                    self.scene_rect = egui::Rect::ZERO;
+                }
+
+                let painter = ui.painter_at(cross_rect);
+                painter.line_segment([cross_rect.left_top(), cross_rect.right_bottom()], egui::Stroke::new(3.0, egui::Color32::LIGHT_GRAY));
+                painter.line_segment([cross_rect.right_top(), cross_rect.left_bottom()], egui::Stroke::new(3.0, egui::Color32::LIGHT_GRAY));
+
+                egui::Scene::new()
+                    .max_inner_size([1000.0, 1200.0])
+                    .zoom_range(0.2..=3.0)
+                    .show(ui, &mut self.scene_rect, |ui| {
+                        ui.add(Image::new(image_url))
+                    });
+            }).response
+        } else {
+            ui.response()
+        }
+    }
+}
+
 
 fn code_view(ui: &mut Ui, ctx: &Context, code: &str, lang: &str) -> eframe::egui::Response {
     let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(ctx, ui.style());

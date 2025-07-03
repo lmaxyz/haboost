@@ -55,6 +55,7 @@ struct Backward {
     start_pos: Pos2,
     start_pos_offset: Pos2,
     activated: bool,
+    active_touches: Vec<egui::TouchId>,
 }
 
 impl Backward {
@@ -81,11 +82,19 @@ impl Backward {
         self.activated = false;
         ui.input_mut(|i| {
             i.events.retain(|e| {
-                if let egui::Event::Touch { device_id: _, id: _, phase, pos, force: _ } = e {
+                if let egui::Event::Touch { device_id: _, id, phase, pos, force: _ } = e {
                     match *phase {
                         TouchPhase::Start => {
                             // Set start touch coords
-                            (self.start_pos.x, self.start_pos.y) = (pos.x, pos.y);
+                            if !self.active_touches.contains(id) {
+                                self.active_touches.push(*id);
+                            }
+                            if self.active_touches.len() > 1 {
+                                self.start_pos = Pos2::new(-1., -1.);
+                                self.start_pos_offset = Pos2::ZERO;
+                            } else {
+                                self.start_pos = *pos;
+                            }
                         },
                         TouchPhase::Move => {
                             // Set move touch coords for transitions
@@ -98,14 +107,15 @@ impl Backward {
                         },
                         TouchPhase::Cancel => {
                             // Skip backwarding
-                            self.start_pos = Pos2::ZERO;
+                            self.start_pos = Pos2::new(-1., -1.);
                             self.start_pos_offset = Pos2::ZERO;
                         },
                         TouchPhase::End => {
                             // Backward if threshold achieved
                             self.activated = pos.x - self.start_pos.x >= self.activate_threshold && self.started();
-                            self.start_pos = Pos2::ZERO;
+                            self.start_pos = Pos2::new(-1., -1.);
                             self.start_pos_offset = Pos2::ZERO;
+                            self.active_touches.retain(|active_id| active_id != id);
                         }
                     }
                 };
@@ -115,7 +125,7 @@ impl Backward {
     }
 
     pub fn started(&self) -> bool {
-        self.start_pos.x >= 0. && self.start_pos.x <= self.start_threshold && self.start_pos_offset.y < 100.
+        self.start_pos.x >= 0. && self.start_pos.x <= self.start_threshold && self.start_pos_offset.y < 50.
     }
 
     pub fn activated(&self) -> bool {
@@ -125,6 +135,13 @@ impl Backward {
 
 impl Default for Backward {
     fn default() -> Self {
-        Backward { start_threshold: 50., activate_threshold: 200., start_pos: Pos2::ZERO, start_pos_offset: Pos2::ZERO, activated: false }
+        Backward {
+            start_threshold: 50.,
+            activate_threshold: 200.,
+            start_pos: Pos2::new(-1., -1.),
+            start_pos_offset: Pos2::ZERO,
+            activated: false,
+            active_touches: Vec::new(),
+        }
     }
 }
