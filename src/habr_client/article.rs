@@ -73,7 +73,7 @@ pub struct ArticleData {
     pub image_url: String,
 }
 
-
+#[derive(Clone, Debug)]
 pub enum ArticleContent {
     Image(String),
     Header(u8, String),
@@ -81,5 +81,10 @@ pub enum ArticleContent {
     Code {
         lang: String,
         content: String
-    }
+    },
+    Blockquote(String),
+    Text(TypedText),
+    UnorderedList(Vec<ArticleContent>),
+    OrderedList(Vec<ArticleContent>),
+    BR,
 }

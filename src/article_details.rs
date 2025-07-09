@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
-use eframe::egui::{self, Color32, Context, Image, Label, Layout, OpenUrl, RichText, ScrollArea, Spinner, Ui};
+use eframe::egui::{self, Color32, Context, Image, Label, Layout, OpenUrl, RichText, ScrollArea, Spinner, Ui, Widget};
 use tokio::runtime::Runtime;
 
 use crate::view_stack::UiView;
@@ -89,13 +89,12 @@ impl UiView for ArticleDetails {
                             .selectable(false)
                             .wrap()
                     );
-
                     for (i, content) in self.article_content.read().unwrap().iter().enumerate() {
                         match content {
                             ArticleContent::Header(h_lvl, content) => {
                                 ui.with_layout(Layout::left_to_right(eframe::egui::Align::Min), |ui| {
                                     ui.add(
-                                        Label::new(RichText::new(content).heading().strong().size(28. - *h_lvl as f32))
+                                        Label::new(RichText::new(content).heading().strong().size(27. - *h_lvl as f32))
                                             .selectable(false)
                                             .wrap()
                                     );
@@ -116,30 +115,27 @@ impl UiView for ArticleDetails {
                                     };
                                 });
                             },
+                            ArticleContent::Blockquote(content) => {
+                                ui.horizontal(|ui| {
+                                    egui::Frame::new()
+                                        .inner_margin(egui::Margin::symmetric(25, 15))
+                                        .outer_margin(egui::Margin::symmetric(0, 10))
+                                        .fill(Color32::GRAY)
+                                        .corner_radius(10)
+                                        .show(ui, |ui| {
+                                            ui.vertical(|ui| {
+                                                ui.spacing_mut().item_spacing = egui::Vec2::new(0.0, 5.0);
+                                                egui::Image::from_bytes("bytes://double-quotes", include_bytes!("../assets/double-quotes.png")).fit_to_exact_size((15., 15.).into()).ui(ui);
+                                                egui::Label::new(egui::RichText::new(content).size(16.).color(Color32::BLACK).italics()).wrap().selectable(false).ui(ui);
+                                        });
+                                    });
+                                });
+                            },
                             ArticleContent::Paragraph(conetnt_stream) => {
                                 ui.horizontal_wrapped( |ui| {
                                     ui.spacing_mut().item_spacing.x = 0.0;
                                     for content in conetnt_stream {
-                                        match content {
-                                            TypedText::Code(text) => {
-                                                ui.label(RichText::new(text).code().size(18.));
-                                            },
-                                            TypedText::Link { url, value } => {
-                                                if ui.link(RichText::new(value).size(20.).color(Color32::CYAN)).clicked() {
-                                                    // ToDo: Add Aurora OS url open call
-                                                    ctx.open_url(OpenUrl::new_tab(url));
-                                                }
-                                            },
-                                            TypedText::Common(text) => {
-                                                ui.add(Label::new(RichText::new(text).size(20.)).wrap().selectable(false));
-                                            },
-                                            TypedText::Italic(text) => {
-                                                ui.add(Label::new(RichText::new(text).size(20.).italics()).wrap().selectable(false));
-                                            },
-                                            TypedText::Strong(text) => {
-                                                ui.add(Label::new(RichText::new(text).size(20.).strong()).wrap().selectable(false));
-                                            }
-                                        }
+                                        typed_text_ui(ui, ctx, &content)
                                     }
                                 });
                             },
@@ -154,6 +150,27 @@ impl UiView for ArticleDetails {
                                         self.image_viewer.set_image_url(src.clone());
                                     }
                                 });
+                            },
+                            ArticleContent::BR => ui.add_space(5.),
+                            ArticleContent::Text(text) => {
+                                match text {
+                                    TypedText::Common(text) => {
+                                        ui.add(Label::new(RichText::new(text).size(18.)).wrap().selectable(false));
+                                    },
+                                    _ => {}
+                                };
+                            },
+                            ArticleContent::UnorderedList(list) | ArticleContent::OrderedList(list) => {
+                                for item in list.iter() {
+                                    if let ArticleContent::Paragraph(p_content) = item {
+                                        ui.horizontal_wrapped(|ui| {
+                                            ui.spacing_mut().item_spacing.x = 0.0;
+                                            for typed_text in p_content {
+                                                typed_text_ui(ui, ctx, typed_text);
+                                            }
+                                        });
+                                    }
+                                }
                             }
                         }
                     }
@@ -205,7 +222,7 @@ impl ImageViewer {
 
                 egui::Scene::new()
                     .max_inner_size([1000.0, 1200.0])
-                    .zoom_range(0.2..=3.0)
+                    .zoom_range(0.3..=3.0)
                     .show(ui, &mut self.scene_rect, |ui| {
                         ui.add(Image::new(image_url))
                     });
@@ -214,6 +231,28 @@ impl ImageViewer {
     }
 }
 
+fn typed_text_ui(ui: &mut egui::Ui, ctx: &egui::Context, content: &TypedText) {
+    match content {
+        TypedText::Code(text) => {
+            ui.label(RichText::new(text).code().size(16.));
+        },
+        TypedText::Link { url, value } => {
+            if ui.link(RichText::new(value).size(18.).color(Color32::CYAN)).clicked() {
+                // ToDo: Add Aurora OS url open call
+                ctx.open_url(OpenUrl::new_tab(url));
+            }
+        },
+        TypedText::Common(text) => {
+            ui.add(Label::new(RichText::new(text).size(18.)).wrap().selectable(false));
+        },
+        TypedText::Italic(text) => {
+            ui.add(Label::new(RichText::new(text).size(18.).italics()).wrap().selectable(false));
+        },
+        TypedText::Strong(text) => {
+            ui.add(Label::new(RichText::new(text).size(18.).strong()).wrap().selectable(false));
+        }
+    }
+}
 
 fn code_view(ui: &mut Ui, ctx: &Context, code: &str, lang: &str) -> eframe::egui::Response {
     let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(ctx, ui.style());

@@ -1,16 +1,17 @@
 use std::{
-    cell::RefCell, rc::Rc, sync::{
-        atomic::{AtomicBool, AtomicU8, Ordering},
-        Arc, RwLock,
-    }
+    cell::RefCell, rc::Rc,
+    sync::{atomic::{AtomicBool, AtomicU8, Ordering}, Arc, RwLock},
 };
 
-use eframe::egui::{self, Layout, RichText, ScrollArea, Spinner, TextEdit, Ui, Vec2};
+use eframe::egui::{self, Layout, RichText, ScrollArea, Spinner, TextEdit, Ui, Label, Sense, Response, UiBuilder, Image, Widget};
 use tokio::runtime::Runtime;
+use egui_taffy::{taffy::{self, prelude::TaffyZero}, TuiBuilderLogic};
 
 use crate::{habr_client::hub::{get_hubs, HubItem}, HabreState};
-use crate::widgets::{Pager, HubListItem};
+use crate::widgets::Pager;
 use crate::{UiView, ViewStack};
+
+// static BOOKMARK_ICON: &[u8] = include_bytes!("../assets/bookmark.png");
 
 pub struct HubsList {
     pub is_loading: Arc<AtomicBool>,
@@ -60,8 +61,8 @@ impl HubsList {
     fn search_ui(&mut self, ui: &mut Ui) {
         let search_edit = TextEdit::singleline(&mut self.search_text)
             .desired_width(f32::INFINITY)
-            .font(egui::epaint::text::FontId::proportional(26.))
-            .hint_text_font(egui::epaint::text::FontId::proportional(26.))
+            .font(egui::epaint::text::FontId::proportional(24.))
+            .hint_text_font(egui::epaint::text::FontId::proportional(24.))
             .hint_text("Поиск")
             .show(ui).response;
 
@@ -119,59 +120,167 @@ impl HubsList {
 
 impl UiView for HubsList {
     fn ui(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context, view_stack: &mut ViewStack) {
-        let paging_height = 50.;
-        ui.with_layout(Layout::top_down(eframe::egui::Align::Center), |ui| {
-            ui.label(RichText::new("Хабы").size(32.));
-
-
-            if ui.put(egui::Rect::from_min_size((ui.available_width()-40., 10.).into(), (45.,45.).into()), egui::Button::new(RichText::new("⚙").size(32.))).clicked() {
-                view_stack.push(self.habre_state.borrow().settings.clone());
-            }
-
-            ui.separator();
-            self.search_ui(ui);
-
-            if self.is_loading.load(Ordering::Relaxed) {
-                ui.add_sized(
-                    ui.available_size() - Vec2::new(0., paging_height),
-                    Spinner::new().size(50.),
-                );
-            } else {
-                let mut scroll_area = ScrollArea::vertical()
-                    .auto_shrink(false)
-                    .scroll_bar_visibility(
-                        eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
-                    )
-                    .max_height(ui.available_height() - paging_height);
-
-                if self.reset_scroll_area {
-                    scroll_area = scroll_area.vertical_scroll_offset(0.);
-                    self.reset_scroll_area = false;
-                }
-
-                scroll_area.show(ui, |ui| {
-                    for hub in self.hubs.read().unwrap().iter() {
-                        if HubListItem::ui(ui, hub).clicked() {
-                            {
-                                let mut state = self.habre_state.borrow_mut();
-                                state.selected_hub_id = hub.alias.clone();
-                                state.selected_hub_title = hub.title.clone();
-                            }
-
-                            self.hub_selected_cb.as_mut().map(|cb| {
-                                cb(hub.id.clone(), view_stack);
-                            });
-                        }
-
-                        ui.separator();
+        egui_taffy::tui(ui, ui.id().with("hubs_list"))
+            .reserve_available_space()
+            .style(taffy::Style {
+                justify_content: Some(taffy::AlignContent::SpaceBetween),
+                flex_direction: taffy::FlexDirection::Column,
+                gap: taffy::Size {width: taffy::LengthPercentage::Length(15.), height: taffy::LengthPercentage::Length(10.)},
+                size: taffy::Size {
+                    width: taffy::Dimension::Percent(1.),
+                    height: taffy::Dimension::Percent(1.),
+                },
+                ..Default::default()
+            })
+            .show(|tui| {
+                tui.style(taffy::Style {
+                        flex_direction: taffy::FlexDirection::Column,
+                        gap: taffy::Size { height: taffy::LengthPercentage::Length(10.), width: taffy::LengthPercentage::ZERO },
+                        ..Default::default()}
+                ).add(|tui| {
+                    tui.egui_layout(Layout::default().with_cross_align(egui::Align::Center))
+                        .ui_add(egui::Label::new(RichText::new("Хабы").size(30.)));
+                    let settings_rect = egui::Rect::from_min_size((tui.egui_ui().available_width()-40., 10.).into(), (40.,40.).into());
+                    if tui.egui_ui_mut().put(settings_rect, egui::Button::new(RichText::new("⚙").size(28.))).clicked() {
+                        view_stack.push(self.habre_state.borrow().settings.clone());
                     }
-                });
-            };
+                    tui.separator();
 
-            if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui).changed() {
-                self.get_hubs();
-                self.reset_scroll_area = true;
-            };
-        });
+                    tui.ui(|ui| {
+                        self.search_ui(ui)
+                    });
+                });
+                if self.is_loading.load(Ordering::Relaxed) {
+                    tui.egui_layout(Layout::default().with_cross_align(egui::Align::Center)).ui_add(Spinner::new().size(50.));
+                } else {
+                    let mut scroll_area = ScrollArea::vertical()
+                        .max_width(tui.egui_ui().available_width())
+                        .hscroll(false)
+                        .scroll_bar_visibility(
+                            eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
+                        );
+
+                    if self.reset_scroll_area {
+                        scroll_area = scroll_area.vertical_scroll_offset(0.);
+                        self.reset_scroll_area = false;
+                    }
+
+                    tui.style(taffy::Style { size: taffy::Size::from_percent(1., 1.), ..Default::default() }).ui(|ui| {
+                        scroll_area.show(ui, |ui| {
+                            for hub in self.hubs.read().unwrap().iter() {
+                                if HubListItem::ui(ui, hub).clicked() {
+                                    {
+                                        let mut state = self.habre_state.borrow_mut();
+                                        state.selected_hub_id = hub.alias.clone();
+                                        state.selected_hub_title = hub.title.clone();
+                                    }
+
+                                    self.hub_selected_cb.as_mut().map(|cb| {
+                                        cb(hub.id.clone(), view_stack);
+                                    });
+                                }
+
+                                ui.separator();
+                            }
+                        });
+                    });
+                }
+                tui.ui(|ui| {
+                    if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui).changed() {
+                        self.get_hubs();
+                        self.reset_scroll_area = true;
+                    };
+                })
+            });
+        // ui.with_layout(Layout::top_down(eframe::egui::Align::Center), |ui| {
+        //     ui.label(RichText::new("Хабы").size(32.));
+
+        //     let settings_rect = egui::Rect::from_min_size((ui.available_width()-40., 10.).into(), (40.,40.).into());
+        //     if ui.put(settings_rect, egui::Button::new(RichText::new("⚙").size(28.))).clicked() {
+        //         view_stack.push(self.habre_state.borrow().settings.clone());
+        //     }
+
+        //     ui.separator();
+        //     self.search_ui(ui);
+
+        //     if self.is_loading.load(Ordering::Relaxed) {
+        //         ui.add_sized(
+        //             ui.available_size() - Vec2::new(0., paging_height),
+        //             Spinner::new().size(50.),
+        //         );
+        //     } else {
+                // let mut scroll_area = ScrollArea::vertical()
+                //     .max_width(ui.available_width())
+                //     .hscroll(false)
+                //     .scroll_bar_visibility(
+                //         eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
+                //     )
+                //     .max_height(ui.available_height() - paging_height);
+
+                // if self.reset_scroll_area {
+                //     scroll_area = scroll_area.vertical_scroll_offset(0.);
+                //     self.reset_scroll_area = false;
+                // }
+                // ui.set_max_width(ui.available_width());
+
+                // let item_width = ui.available_width();
+                // scroll_area.show(ui, |ui| {
+                //     for hub in self.hubs.read().unwrap().iter() {
+                //         if HubListItem::ui(ui, hub, item_width).clicked() {
+                //             {
+                //                 let mut state = self.habre_state.borrow_mut();
+                //                 state.selected_hub_id = hub.alias.clone();
+                //                 state.selected_hub_title = hub.title.clone();
+                //             }
+
+                //             self.hub_selected_cb.as_mut().map(|cb| {
+                //                 cb(hub.id.clone(), view_stack);
+                //             });
+                //         }
+
+                //         ui.separator();
+                //     }
+                // });
+        //     };
+
+            // if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui).changed() {
+            //     self.get_hubs();
+            //     self.reset_scroll_area = true;
+            // };
+        // });
+    }
+}
+
+pub struct HubListItem;
+
+impl HubListItem {
+    pub fn ui(ui: &mut Ui, hub: &HubItem) -> Response {
+        let img_size = egui::Vec2::splat(ui.available_width()/5.);
+        ui.scope_builder(UiBuilder::new().id_salt(&hub.alias).sense(Sense::click()), |ui| {
+            ui.horizontal(|ui| {
+                ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                    ui.add(Image::new("https:".to_string() + hub.image_url.as_str()).fit_to_exact_size(img_size));
+                });
+
+                ui.add_sized(egui::Vec2::new(ui.available_width() - 10., img_size.y), |ui: &mut egui::Ui| {
+                    ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
+                        ui.spacing_mut().item_spacing = egui::Vec2::splat(5.);
+
+                        Label::new(RichText::new(hub.title.as_str()).size(20.).strong())
+                            .selectable(false)
+                            .ui(ui);
+
+                        Label::new(RichText::new(hub.description_html.as_str()).size(16.))
+                            .selectable(false)
+                            .ui(ui);
+                    }).response
+                });
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    ui.add_space(5.);
+                //     let bookmark_icon = Image::from_bytes("bytes://bookmark", BOOKMARK_ICON).fit_to_exact_size((30., 30.).into());
+                //     ui.add(egui::ImageButton::new(bookmark_icon))
+                });
+            })
+        }).response
     }
 }

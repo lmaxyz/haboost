@@ -97,38 +97,20 @@ impl HabrClient {
 
 fn extract_text_from_html(input: &str) -> String {
     let html = Html::parse_fragment(&input);
-    // if let Some(first_child) = html.root_element().first_child() {
-    //     if let Some(txt) = first_child.value().as_text() {
-    //         return TypedText::Common(txt.to_string())
-    //     } else if let Some(elem) = first_child.value().as_element() {
-    //         match elem.name() {
-    //             "em" => return TypedText::Italic(first_child.first_child().map_or("".to_string(), |item| item.value().as_text().unwrap().to_string())),
-    //             _ => {}
-    //         }
-    //     }
-    // }
     get_element_text(&html.root_element())
 }
 
 async fn extract_content_from_html(text: String) -> Vec<ArticleContent> {
     let html = Html::parse_fragment(&text);
-    // for node in html.tree.values().into_iter() {
-    //     println!("Node: {:?}", node);
-    //     // if let Some(el) = node.as_element() {
-    //     //     println!("Node: {:?}", el);
-    //     // }
-    // }
-    parse_content_recursively(html.root_element())
-}
 
-fn parse_content_recursively<'a>(element: ElementRef<'a>) -> Vec<ArticleContent> {
     let mut res = Vec::new();
-    if let Ok(content) = element.try_into() {
-        res.push(content);
+    if html.root_element().children().count() == 1 {
+        let parsed = parse_recursively(&ElementRef::wrap(html.root_element().first_child().unwrap()).unwrap());
+        res.extend(parsed);
+    } else {
+
     }
-    for inner_elem in element.child_elements() {
-        res.extend(parse_content_recursively(inner_elem))
-    }
+
     res
 }
 
@@ -141,50 +123,44 @@ fn trim_first(index: usize, text: &str) -> String {
 }
 
 fn extract_paragraph_content<'a>(element: &ElementRef<'a>) -> Vec<TypedText> {
-    if element.value().name() == "p" && element.has_children() {
-        return element.children().enumerate().filter_map(|(index, child)| {
-            if let Some(txt) = child.value().as_text() {
-                return Some(TypedText::Common(trim_first(index, txt)))
-            }
-            if let Some(elem) = child.value().as_element() {
-                if let Some(text_child) = child.first_child() {
-                    if let Some(text) = text_child.value().as_text().map(|txt| trim_first(index, txt)) {
-                        match elem.name() {
-                            "code" => {
-                                return Some(TypedText::Code(text))
-                            },
-                            "i" | "em" => {
-                                return Some(TypedText::Italic(text))
-                            },
-                            "strong" => {
-                                return Some(TypedText::Strong(text))
-                            }
-                            _tag_name => {}
+    element.children().enumerate().filter_map(|(index, p_child)| {
+        if let Some(txt) = p_child.value().as_text() {
+            return Some(TypedText::Common(trim_first(index, txt)))
+        }
+        if let Some(elem) = p_child.value().as_element() {
+            if let Some(inner_child) = p_child.first_child() {
+                if elem.name() == "a" {
+                    let url = elem.attr("href").unwrap().to_string();
+                    let value = if let Some(link_text) = inner_child.value().as_text() {
+                        trim_first(index, link_text)
+                    } else {
+                        url.clone()
+                    };
+                    return Some(TypedText::Link {
+                        url,
+                        value
+                    })
+                }
+                if let Some(text) = inner_child.value().as_text().map(|txt| trim_first(index, txt)) {
+                    match elem.name() {
+                        "code" => {
+                            return Some(TypedText::Code(text))
+                        },
+                        "i" | "em" => {
+                            return Some(TypedText::Italic(text))
+                        },
+                        "strong" => {
+                            return Some(TypedText::Strong(text))
+                        },
+                        _tag_name => {
+                            log::warn!("Unknown tag inside paragraph: {_tag_name}");
                         }
-                    }
-                    if elem.name() == "a" {
-                        let url = elem.attr("href").unwrap().to_string();
-                        let value = if let Some(link_child) = child.first_child() {
-                            if let Some(link_text) = link_child.value().as_text() {
-                                trim_first(index, link_text)
-                            } else {
-                                url.clone()
-                            }
-                        } else {
-                            url.clone()
-                        };
-                        let link = TypedText::Link {
-                            url,
-                            value
-                        };
-                        return Some(link)
                     }
                 }
             }
-            None
-        }).collect()
-    }
-    Vec::new()
+        }
+        None
+    }).collect()
 }
 
 fn get_element_text<'a>(element: &ElementRef<'a>) -> String {
@@ -195,52 +171,93 @@ fn get_element_text<'a>(element: &ElementRef<'a>) -> String {
         .join(" ")
 }
 
-impl TryFrom<&ElementRef<'_>> for ArticleContent {
-    type Error = ();
-
-    fn try_from(element: &ElementRef<'_>) -> Result<Self, Self::Error> {
-        match element.value().name() {
-            "img" => {
-                if let Some(img_src) = element.attr("src") {
-                    Ok(ArticleContent::Image(img_src.to_string()))
+fn get_list_items<'a>(element: &ElementRef<'a>) -> Vec<ArticleContent> {
+    element.children().filter_map(|child| {
+        if child.value().is_element() {
+            if let Some(li_child) = child.first_child() {
+                if let Some(text) = li_child.value().as_text() {
+                    Some(ArticleContent::Text(TypedText::Common(text.trim().to_string())))
+                } else if li_child.value().is_element() {
+                    let res = ArticleContent::Paragraph(extract_paragraph_content(&ElementRef::wrap(li_child).unwrap()));
+                    Some(res)
                 } else {
-                    Err(())
+                    None
                 }
+            } else {
+                None
             }
-            "p" => Ok(ArticleContent::Paragraph(extract_paragraph_content(element))),
-            "h2" => Ok(ArticleContent::Header(2, get_element_text(element))),
-            "h3" => Ok(ArticleContent::Header(3, get_element_text(element))),
-            "h4" => Ok(ArticleContent::Header(4, get_element_text(element))),
-            "code" => {
-                if element.parent().unwrap().value().as_element().unwrap().name() == "p" {
-                    return Err(())
+        } else {
+            None
+        }
+    }).collect()
+}
+
+fn parse_recursively<'a>(element: &ElementRef<'a>) -> Vec<ArticleContent> {
+    match element.value().name() {
+        "img" => {
+            if let Some(img_src) = element.attr("src") {
+                vec![ArticleContent::Image(img_src.to_string())]
+            } else {
+                vec![]
+            }
+        }
+        "p" => vec![ArticleContent::Paragraph(extract_paragraph_content(element))],
+        "h2" => vec![ArticleContent::Header(2, get_element_text(element))],
+        "h3" => vec![ArticleContent::Header(3, get_element_text(element))],
+        "h4" => vec![ArticleContent::Header(4, get_element_text(element))],
+        "code" | "pre" => {
+            vec![ArticleContent::Code{
+                lang: element.attr("class").unwrap_or("").to_string(),
+                content: get_element_text(element)
+            }]
+        },
+        "blockquote" => {
+            vec![ArticleContent::Blockquote(get_element_text(element))]
+        },
+        "ul" => {
+            vec![ArticleContent::UnorderedList(get_list_items(element))]
+        },
+        "ol" => {
+            vec![ArticleContent::OrderedList(get_list_items(element))]
+        },
+        "a" => {
+            let url = element.attr("href").unwrap_or("").to_string();
+            let link_text = get_element_text(element);
+            let value = if !link_text.is_empty() {
+                link_text
+            } else {
+                url.clone()
+            };
+            vec![ArticleContent::Paragraph(vec![TypedText::Link {url, value}])]
+        },
+        "i" => {
+            vec![ArticleContent::Paragraph(vec![TypedText::Italic(get_element_text(element))])]
+        }
+        "div" => {
+            element.children().flat_map(|child| {
+                if let Some(inner_elem) = ElementRef::wrap(child) {
+                    parse_recursively(&inner_elem)
+                } else if let Some(text) = child.value().as_text() {
+                    let text = text.trim().to_string();
+                    if text.is_empty() {
+                        vec![]
+                    } else {
+                        vec![ArticleContent::Text(TypedText::Common(text))]
+                    }
+                } else {
+                    vec![]
                 }
-                Ok(ArticleContent::Code{
-                    lang: element.attr("class").unwrap_or("").to_string(),
-                    content: get_element_text(element)
-                })
-            },
-            // "a" => {
-            //     Ok(ArticleContent::Text(
-            //     get_element_text(element),
-            //     TextType::Link(element.attr("href").unwrap_or("").to_string()),
-            // ))},
-            _tag @ _ => {
-                // println!("[!] Unsupported tag: {}", _tag);
-                Err(())
-            }
+            }).collect()
+        }
+        "br" => {
+            vec![ArticleContent::BR]
+        }
+        _tag @ _ => {
+            log::warn!("[!] Unsupported tag: {} with content: {}, {:?}", _tag, get_element_text(element), element.attr("class"));
+            vec![]
         }
     }
 }
-
-impl TryFrom<ElementRef<'_>> for ArticleContent {
-    type Error = ();
-
-    fn try_from(element: ElementRef<'_>) -> Result<Self, Self::Error> {
-        (&element).try_into()
-    }
-}
-
 
 #[derive(Debug, Clone)]
 pub enum TypedText {

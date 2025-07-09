@@ -1,6 +1,6 @@
 [package]
 name = "haboost"
-version = "0.3.0"
+version = "0.4.0"
 edition = "2021"
 
 [dependencies]
@@ -14,8 +14,8 @@ egui_extras = { version = "0.31", default-features = false, features = [
     "image",
     "http",
 ] }
-# egui_flex = "0.3"
 egui_taffy = "0.7"
+egui-theme-switch = "0.3.0"
 
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
@@ -42,6 +42,7 @@ tokio = { version = "1.41.0", default-features = false, features = [
 scraper = "0.23"
 chrono = "0.4"
 toml = "0.8"
+log = "*"
 
 [profile.release]
 strip = true

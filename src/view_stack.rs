@@ -74,7 +74,7 @@ impl Backward {
         let rect = Rect::from_min_size((x_offset, 50.).into(), (50., 50.).into());
         let stroke = egui::Stroke::new(2., if ready_to_activate {Color32::WHITE} else {Color32::LIGHT_GRAY});
         let painter = ui.painter_at(rect);
-        painter.rect(rect, 15, if ready_to_activate {Color32::GRAY} else {Color32::DARK_GRAY}, stroke, egui::StrokeKind::Inside);
+        painter.rect(rect, 10, if ready_to_activate {Color32::GRAY} else {Color32::DARK_GRAY}, stroke, egui::StrokeKind::Inside);
         painter.arrow(Pos2::new(x_offset + 40., 75.), Vec2::new(-30., 0.), stroke);
     }
 

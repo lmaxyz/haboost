@@ -10,7 +10,6 @@ mod article_details;
 mod widgets;
 mod settings;
 mod view_stack;
-// mod utils;
 
 use hubs_list::HubsList;
 use articles_list::ArticlesList;
@@ -25,7 +24,11 @@ fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
 
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default(),
+        viewport: egui::ViewportBuilder {
+            #[cfg(not(target_arch = "arm"))]
+            max_inner_size: Some((360., 720.).into()),
+            ..Default::default()
+        },
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
@@ -34,6 +37,7 @@ fn main() -> eframe::Result {
         options,
         Box::new(|cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);
+            // cc.egui_ctx.set_theme(egui::ThemePreference::Light);
             Ok(Box::<MyApp>::default())
         }),
     )
@@ -79,6 +83,7 @@ impl eframe::App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         egui::CentralPanel::default().show(ctx, |ui| {
             ctx.set_pixels_per_point(self.state.borrow().settings.borrow().scale_factor());
+            ctx.set_theme(self.state.borrow().settings.borrow().theme());
             ui.spacing_mut().item_spacing = egui::Vec2::new(15., 15.);
 
             self.view_stack.ui(ui, ctx);

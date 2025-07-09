@@ -3,11 +3,11 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use tokio::runtime::Runtime;
-use eframe::egui::{Align, Context, Label, Layout, RichText, ScrollArea, Spinner};
+use eframe::egui::{self, Align, Color32, Context, Frame, Label, Layout, Response, RichText, ScrollArea, Sense, Spinner, Ui, UiBuilder, Widget, Image, Grid};
 use egui_taffy::{taffy::{self, prelude::TaffyZero, AlignContent, Size, Style}, tui, TuiBuilderLogic};
 
 use crate::{habr_client::{article::ArticleData, HabrClient}, view_stack::{UiView, ViewStack}, HabreState};
-use crate::widgets::{Pager, ArticleListItem};
+use crate::widgets::Pager;
 
 pub struct ArticlesList {
     pub is_loading: Arc<AtomicBool>,
@@ -75,7 +75,7 @@ impl ArticlesList {
 
 
 impl UiView for ArticlesList {
-    fn ui(&mut self, ui: &mut eframe::egui::Ui, _ctx: &Context, view_stack: &mut crate::view_stack::ViewStack) {
+    fn ui(&mut self, ui: &mut Ui, _ctx: &Context, view_stack: &mut crate::view_stack::ViewStack) {
         tui(ui, ui.id().with("articles_list"))
             .reserve_available_space()
             .style(taffy::Style {
@@ -93,10 +93,10 @@ impl UiView for ArticlesList {
                         flex_direction: taffy::FlexDirection::Column,
                         gap: Size { height: taffy::LengthPercentage::Length(10.), width: taffy::LengthPercentage::ZERO },
                         ..Default::default()}
-                ).add(|ui| {
-                    ui.egui_layout(Layout::default().with_cross_align(Align::Center))
-                        .ui_add(Label::new(RichText::new(self.habre_state.borrow().selected_hub_title.as_str()).size(32.)));
-                    ui.separator();
+                ).add(|tui| {
+                    tui.egui_layout(Layout::default().with_cross_align(Align::Center))
+                        .ui_add(Label::new(RichText::new(self.habre_state.borrow().selected_hub_title.as_str()).size(28.)));
+                    tui.separator();
                 });
 
                 if self.is_loading.load(Ordering::Relaxed) {
@@ -133,5 +133,99 @@ impl UiView for ArticlesList {
                     }
                 });
             });
+    }
+}
+
+pub struct ArticleListItem;
+
+impl ArticleListItem {
+    pub fn ui(ui: &mut Ui, article: &ArticleData) -> Response {
+        let frame = Frame::NONE
+            .corner_radius(10.)
+            .fill(Color32::DARK_GRAY)
+            .inner_margin(15.);
+
+        ui.scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
+            frame.show(ui, |ui| {
+                ui.with_layout(Layout::top_down(egui::Align::Min).with_cross_justify(true), |ui| {
+                    let author_txt = RichText::new(article.author.as_str())
+                        .strong()
+                        .size(16.)
+                        .color(Color32::CYAN);
+
+                    ui.vertical(|ui| {
+                        ui.spacing_mut().item_spacing = egui::Vec2::new(0., 5.);
+                        Label::new(author_txt)
+                            .selectable(false)
+                            .ui(ui);
+
+                        Label::new(RichText::new(article.published_at.as_str()).size(14.).color(Color32::LIGHT_GRAY))
+                            .selectable(false)
+                            .ui(ui);
+                    });
+
+                    if !article.image_url.is_empty() {
+                        ui.with_layout(Layout::top_down_justified(egui::Align::Center), |ui| {
+                            Image::new(article.image_url.as_str())
+                                // .fit_to_exact_size((img_width, img_width/2.).into())
+                                .max_width(ui.available_width())
+                                .fit_to_original_size(1.)
+                                .ui(ui);
+                        });
+                    }
+
+                    ui.spacing_mut().item_spacing = egui::Vec2::new(10., 5.);
+                    Grid::new(&article.id).num_columns(2).show(ui, |ui| {
+                        if let Some((label, color)) = match article.complexity.as_str() {
+                            "low" => {
+                                Some(("😴 Простой", Color32::GREEN))
+                            },
+                            "medium" => {
+                                Some(("👍 Средний", Color32::GOLD))
+                            },
+                            "high" => {
+                                Some(("☠ Сложный", Color32::RED))
+                            },
+                            _ => {
+                                None
+                            }
+                        } {
+                            Label::new(RichText::new(label).size(18.).strong().color(color))
+                                .selectable(false)
+                                .ui(ui);
+                        };
+
+                        Label::new(RichText::new(format!("🕑 {} мин", article.reading_time)).size(18.).color(Color32::LIGHT_GRAY))
+                            .selectable(false)
+                            .ui(ui);
+                    });
+
+                    // ui.horizontal_wrapped(|ui| {
+                    //     for tag in article.tags.iter() {
+                    //         let mut tag_frame = Frame::new()
+                    //             .corner_radius(15.)
+                    //             .fill(Color32::LIGHT_RED)
+                    //             .inner_margin(egui::Margin::symmetric(10, 5))
+                    //             .begin(ui);
+                    //         let frame_content = tag_frame.content_ui.add(Label::new(tag).extend().selectable(false));
+                    //         ui.allocate_space((frame_content.rect.width(), frame_content.rect.height()).into());
+
+                    //         tag_frame.end(ui);
+                    //     }
+                    // });
+
+                    ui.horizontal_wrapped(|ui| {
+                        Label::new(RichText::new(article.title.as_str()).size(20.).strong())
+                            .selectable(false)
+                            .ui(ui);
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.add_space(5.);
+                        });
+                    })
+                })
+            });
+        })
+        .response
+
     }
 }

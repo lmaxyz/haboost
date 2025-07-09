@@ -1,4 +1,5 @@
 use eframe::egui;
+use egui_theme_switch::ThemeSwitch;
 use toml;
 use serde::{Deserialize, Serialize};
 
@@ -8,18 +9,27 @@ use crate::view_stack::UiView;
 pub struct SettingsData {
     font_size: f32,
     scale_factor: f32,
+    dark_theme: bool,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Copy, Debug)]
 pub struct Settings {
     temp_data: SettingsData,
     saved_data: SettingsData,
+    temp_theme: egui::ThemePreference,
 }
 
 
 impl Settings {
     pub fn scale_factor(&self) -> f32 {
         self.saved_data.scale_factor
+    }
+    pub fn theme(&self) -> egui::ThemePreference {
+        if self.saved_data.dark_theme {
+            egui::ThemePreference::Dark
+        } else {
+            egui::ThemePreference::Light
+        }
     }
 
     fn save_settings(&mut self) {
@@ -38,8 +48,13 @@ impl Settings {
     pub fn read_from_file() -> Option<Self> {
         let home_dir = std::env::home_dir().unwrap();
         if let Ok(readed_data) = std::fs::read_to_string(home_dir.join(".local/share/com.lmaxyz/Haboost/settings.toml")) {
-            let settings_data: SettingsData = toml::from_str(&readed_data).unwrap();
-            Some(Settings {saved_data: settings_data, temp_data: settings_data})
+            if let Ok(settings_data) = toml::from_str::<SettingsData>(&readed_data) {
+                let theme = if settings_data.dark_theme { egui::ThemePreference::Dark } else { egui::ThemePreference::Light };
+                Some(Settings {saved_data: settings_data, temp_data: settings_data, temp_theme: theme})
+            } else {
+                None
+            }
+
         } else {
             None
         }
@@ -48,13 +63,23 @@ impl Settings {
 
 impl UiView for Settings {
     fn ui(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context, _view_stack: &mut crate::view_stack::ViewStack) {
-        ui.label(egui::RichText::new("Настройки").size(32.).heading());
+        ui.vertical_centered_justified(|ui| ui.label(egui::RichText::new("Настройки").size(28.)));
         ui.separator();
 
-        ui.label(egui::RichText::new("Коэффициент масштабирования").size(22.).italics());
-        ui.add(egui::Slider::new(&mut self.temp_data.scale_factor, 1.0..=3.0).step_by(0.25));
+        let theme_selector = ui.add(ThemeSwitch::new(&mut self.temp_theme));
+        if theme_selector.changed() {
+            self.temp_data.dark_theme = self.temp_theme == egui::ThemePreference::Dark;
+        }
 
-        if ui.button(egui::RichText::new("Применить").size(24.)).clicked() {
+        ui.label(egui::RichText::new("Коэффициент масштабирования").size(self.saved_data.font_size));
+        ui.spacing_mut().slider_width = ui.available_width()/2.;
+        ui.add(egui::Slider::new(&mut self.temp_data.scale_factor, 1.0..=3.0).step_by(0.25).max_decimals(2));
+
+        ui.label(egui::RichText::new("Размер шрифта").size(self.saved_data.font_size));
+        ui.add(egui::Slider::new(&mut self.temp_data.font_size, 12.0..=36.0).step_by(1.0).max_decimals(0));
+
+        if ui.button(egui::RichText::new("Применить").size(self.saved_data.font_size)).clicked() {
+            ui.ctx().set_theme(self.temp_theme);
             self.save_settings()
         }
     }
@@ -63,15 +88,17 @@ impl UiView for Settings {
 impl Default for Settings {
     fn default() -> Self {
         let data = SettingsData {
-            font_size: 22.,
+            font_size: 18.,
             #[cfg(target_arch = "arm")]
-            scale_factor: 1.5,
+            scale_factor: 2.0,
             #[cfg(not(target_arch = "arm"))]
             scale_factor: 1.,
+            dark_theme: true,
         };
         Self {
             temp_data: data,
             saved_data: data,
+            temp_theme: egui::ThemePreference::System,
         }
     }
 }
