@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::rc::Rc;
 
 use eframe::egui;
+use eframe::epaint::text::{FontInsert, InsertFontFamily};
 
 mod habr_client;
 mod hubs_list;
@@ -37,7 +38,7 @@ fn main() -> eframe::Result {
         options,
         Box::new(|cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);
-            // cc.egui_ctx.set_theme(egui::ThemePreference::Light);
+            add_font(&cc.egui_ctx);
             Ok(Box::<MyApp>::default())
         }),
     )
@@ -89,6 +90,25 @@ impl eframe::App for MyApp {
             self.view_stack.ui(ui, ctx);
         });
     }
+}
+
+fn add_font(ctx: &egui::Context) {
+    ctx.add_font(FontInsert::new(
+        "my_font",
+        egui::FontData::from_static(include_bytes!(
+            "../assets/fonts/Roboto-Regular.ttf"
+        )),
+        vec![
+            InsertFontFamily {
+                family: egui::FontFamily::Proportional,
+                priority: egui::epaint::text::FontPriority::Highest,
+            },
+            InsertFontFamily {
+                family: egui::FontFamily::Monospace,
+                priority: egui::epaint::text::FontPriority::Lowest,
+            },
+        ],
+    ));
 }
 
 #[derive(Debug)]
