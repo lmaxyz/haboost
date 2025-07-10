@@ -2,7 +2,6 @@ use std::sync::{Arc, RwLock, atomic::{AtomicBool, AtomicU8, Ordering}};
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use tokio::runtime::Runtime;
 use eframe::egui::{self, Align, Color32, Context, Frame, Label, Layout, Response, RichText, ScrollArea, Sense, Spinner, Ui, UiBuilder, Widget, Image, Grid};
 use egui_taffy::{taffy::{self, prelude::TaffyZero, AlignContent, Size, Style}, tui, TuiBuilderLogic};
 
@@ -15,7 +14,6 @@ pub struct ArticlesList {
 
     habre_state: Rc<RefCell<HabreState>>,
     reset_scroll: bool,
-    async_rt: Runtime,
     articles: Arc<RwLock<Vec<ArticleData>>>,
     habr_client: HabrClient,
 
@@ -25,15 +23,9 @@ pub struct ArticlesList {
 
 impl ArticlesList {
     pub fn new(habre_state: Rc<RefCell<HabreState>>) -> Self {
-        let async_rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_time()
-            .enable_io()
-            .build()
-            .unwrap();
 
         Self {
             habre_state,
-            async_rt,
             habr_client: HabrClient::new(),
             article_selected_cb: None,
 
@@ -62,7 +54,7 @@ impl ArticlesList {
         let is_loading = self.is_loading.clone();
         let current_page = self.current_page;
 
-        self.async_rt.spawn(async move {
+        self.habre_state.borrow().async_handle().spawn(async move {
             let (new_articles, new_max_page) = client.get_articles(&hub_id, current_page).await.unwrap();
             max_page.store(new_max_page as u8, Ordering::Relaxed);
             if let Ok(mut current_articles) = articles.write() {

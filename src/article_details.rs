@@ -4,7 +4,6 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
 use eframe::egui::{self, Color32, Context, Image, Label, Layout, OpenUrl, RichText, ScrollArea, Spinner, Ui, Widget};
-use tokio::runtime::Runtime;
 
 use crate::view_stack::UiView;
 use crate::HabreState;
@@ -16,7 +15,6 @@ pub struct ArticleDetails {
     pub habre_state: Rc<RefCell<HabreState>>,
     is_loading: Arc<AtomicBool>,
     habr_client: HabrClient,
-    async_rt: Runtime,
     selected_code_scroll_id: Option<usize>,
     article_title: Arc<RwLock<String>>,
     article_content: Arc<RwLock<Vec<ArticleContent>>>,
@@ -26,15 +24,8 @@ pub struct ArticleDetails {
 
 impl ArticleDetails {
     pub fn new(habre_state: Rc<RefCell<HabreState>>) -> Self {
-        let async_rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_time()
-            .enable_io()
-            .build()
-            .unwrap();
-
         Self {
             habre_state,
-            async_rt,
             is_loading: Default::default(),
             habr_client: HabrClient::new(),
             article_title: Default::default(),
@@ -54,7 +45,7 @@ impl ArticleDetails {
         let current_article_title = self.article_title.clone();
         let go_top = self.go_top.clone();
 
-        self.async_rt.spawn(async move {
+        self.habre_state.borrow().async_handle().spawn(async move {
             if let Ok((article_title, article_content)) = client.get_article_details(article_id.as_str()).await {
                 let mut current_content = current_content.write().unwrap();
                 let mut current_article_title = current_article_title.write().unwrap();

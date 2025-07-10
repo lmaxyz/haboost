@@ -91,20 +91,35 @@ impl eframe::App for MyApp {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Debug)]
 struct HabreState {
     selected_hub_id: String,
     selected_hub_title: String,
     settings: Rc<RefCell<Settings>>,
 
     selected_article: Option<ArticleData>,
+    tokio_rt: tokio::runtime::Runtime,
 }
 
 impl HabreState {
     fn new() -> Self {
+        let tokio_rt = tokio::runtime::Builder::new_multi_thread()
+            .enable_time()
+            .enable_io()
+            .build()
+            .unwrap();
+
         Self {
+            tokio_rt,
+            selected_hub_id: String::new(),
+            selected_hub_title: String::new(),
+            selected_article: None,
+
             settings: Rc::new(RefCell::new(Settings::read_from_file().unwrap_or_else(Default::default))),
-            ..Default::default()
         }
+    }
+
+    pub fn async_handle(&self) -> tokio::runtime::Handle {
+        self.tokio_rt.handle().clone()
     }
 }

@@ -4,7 +4,6 @@ use std::{
 };
 
 use eframe::egui::{self, Layout, RichText, ScrollArea, Spinner, TextEdit, Ui, Label, Sense, Response, UiBuilder, Image, Widget};
-use tokio::runtime::Runtime;
 use egui_taffy::{taffy::{self, prelude::TaffyZero}, TuiBuilderLogic};
 
 use crate::{habr_client::hub::{get_hubs, HubItem}, HabreState};
@@ -21,7 +20,6 @@ pub struct HubsList {
     search_was_changed: bool,
 
     habre_state: Rc<RefCell<HabreState>>,
-    tokio_rt: Runtime,
     reset_scroll_area: bool,
     current_page: u8,
     max_page: Arc<AtomicU8>,
@@ -30,11 +28,6 @@ pub struct HubsList {
 
 impl HubsList {
     pub fn new(habre_state: Rc<RefCell<HabreState>>) -> Self {
-        let tokio_rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_time()
-            .enable_io()
-            .build()
-            .unwrap();
         let hubs = Default::default();
 
         Self {
@@ -48,7 +41,6 @@ impl HubsList {
             current_page: 1,
             max_page: Arc::new(AtomicU8::new(0)),
 
-            tokio_rt,
             hubs,
         }
     }
@@ -94,6 +86,7 @@ impl HubsList {
 
     pub fn get_hubs(&mut self) {
         self.is_loading.store(true, Ordering::Relaxed);
+        self.reset_scroll_area = true;
 
         let search_text = self.search_text.clone();
         let hubs = self.hubs.clone();
@@ -101,7 +94,7 @@ impl HubsList {
         let is_loading = self.is_loading.clone();
         let max_page = self.max_page.clone();
 
-        self.tokio_rt.spawn(async move {
+        self.habre_state.borrow().async_handle().spawn(async move {
             let (new_hubs, max_page_num) = get_hubs(current_page, search_text).await.unwrap();
             match hubs.write() {
                 Ok(mut hubs) => {
@@ -188,7 +181,6 @@ impl UiView for HubsList {
                 tui.ui(|ui| {
                     if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui).changed() {
                         self.get_hubs();
-                        self.reset_scroll_area = true;
                     };
                 })
             });
