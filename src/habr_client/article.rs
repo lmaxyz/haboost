@@ -65,6 +65,7 @@ pub(crate) struct ArticleResponse {
 pub struct ArticleData {
     pub(crate) id: String,
     pub(crate) title: String,
+    #[allow(dead_code)]
     pub(crate) tags: Vec<String>,
     pub(crate) complexity: String,
     pub(crate) author: String,

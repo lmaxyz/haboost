@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
-use eframe::egui::{self, Color32, Context, Image, Label, Layout, OpenUrl, RichText, ScrollArea, Spinner, Ui, Widget};
+use eframe::egui::{self, Color32, Context, Image, Label, Layout, OpenUrl, RichText, ScrollArea, Spinner, Ui, Widget, scroll_area::ScrollSource};
 
 use crate::view_stack::UiView;
 use crate::HabreState;
@@ -65,9 +65,9 @@ impl UiView for ArticleDetails {
                 ui.add_sized(ui.available_size(), Spinner::new().size(50.));
             } else {
                 let mut scroll_area = ScrollArea::vertical()
-                    .auto_shrink(false)
+                    // .auto_shrink(false)
                     .max_height(ui.available_height())
-                    .enable_scrolling(self.image_viewer.image_url.is_none());
+                    .scroll_source(self.image_viewer.image_url.as_ref().map_or(egui::scroll_area::ScrollSource::ALL, |_| egui::scroll_area::ScrollSource::NONE));
 
                 if self.go_top.load(Ordering::Relaxed) {
                     scroll_area = scroll_area.vertical_scroll_offset(0.);
@@ -93,10 +93,15 @@ impl UiView for ArticleDetails {
                             },
                             ArticleContent::Code { lang, content } => {
                                 ui.with_layout(Layout::left_to_right(eframe::egui::Align::Min), |ui| {
-
                                     let code_scroll = ScrollArea::horizontal()
                                         .id_salt(i)
-                                        .enable_scrolling(self.selected_code_scroll_id.map_or(false, |current_idx| current_idx == i));
+                                        .scroll_source(self.selected_code_scroll_id.map_or(ScrollSource::NONE, |current_idx| {
+                                            if current_idx == i {
+                                                ScrollSource::ALL
+                                            } else {
+                                                ScrollSource::NONE
+                                            }
+                                        }));
                                     if code_scroll.show(ui, |ui| {
                                         code_view(ui, ctx, content, lang)
                                     }).inner.clicked() {
@@ -116,7 +121,7 @@ impl UiView for ArticleDetails {
                                         .show(ui, |ui| {
                                             ui.vertical(|ui| {
                                                 ui.spacing_mut().item_spacing = egui::Vec2::new(0.0, 5.0);
-                                                egui::Image::from_bytes("bytes://double-quotes", include_bytes!("../assets/double-quotes.png")).fit_to_exact_size((15., 15.).into()).ui(ui);
+                                                egui::Image::from_bytes("bytes://double-quotes", include_bytes!("../../assets/double-quotes.png")).fit_to_exact_size((15., 15.).into()).ui(ui);
                                                 egui::Label::new(egui::RichText::new(content).size(16.).color(Color32::BLACK).italics()).wrap().selectable(false).ui(ui);
                                         });
                                     });
@@ -228,8 +233,11 @@ fn typed_text_ui(ui: &mut egui::Ui, ctx: &egui::Context, content: &TypedText) {
             ui.label(RichText::new(text).code().size(16.));
         },
         TypedText::Link { url, value } => {
-            if ui.link(RichText::new(value).size(18.).color(Color32::CYAN)).clicked() {
+            if ui.link(RichText::new(value).size(18.).color(ctx.theme().default_visuals().hyperlink_color)).clicked() {
                 // ToDo: Add Aurora OS url open call
+                #[cfg(not(target_arch = "x86_64"))]
+                crate::aurora_services::open_uri::open_uri(url).unwrap();
+                #[cfg(target_arch = "x86_64")]
                 ctx.open_url(OpenUrl::new_tab(url));
             }
         },

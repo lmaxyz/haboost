@@ -5,25 +5,24 @@ use eframe::egui;
 use eframe::epaint::text::{FontInsert, InsertFontFamily};
 
 mod habr_client;
-mod hubs_list;
-mod articles_list;
-mod article_details;
 mod widgets;
-mod settings;
+mod views;
 mod view_stack;
+#[cfg(not(target_arch = "x86_64"))]
+mod aurora_services;
 
-use hubs_list::HubsList;
-use articles_list::ArticlesList;
-use article_details::ArticleDetails;
-use settings::Settings;
+use views::hubs_list::HubsList;
+use views::articles_list::ArticlesList;
+use views::article_details::ArticleDetails;
+use views::settings::Settings;
 
 use habr_client::article::ArticleData;
 
 use view_stack::{ViewStack, UiView};
 
+
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
-
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder {
             #[cfg(not(target_arch = "arm"))]

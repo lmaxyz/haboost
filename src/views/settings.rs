@@ -89,9 +89,9 @@ impl Default for Settings {
     fn default() -> Self {
         let data = SettingsData {
             font_size: 18.,
-            #[cfg(target_arch = "arm")]
+            #[cfg(not(target_arch = "x86_64"))]
             scale_factor: 2.0,
-            #[cfg(not(target_arch = "arm"))]
+            #[cfg(target_arch = "x86_64")]
             scale_factor: 1.,
             dark_theme: true,
         };

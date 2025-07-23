@@ -3,7 +3,8 @@ use std::rc::Rc;
 use std::cell::RefCell;
 
 use eframe::egui::{self, Align, Color32, Context, Frame, Label, Layout, Response, RichText, ScrollArea, Sense, Spinner, Ui, UiBuilder, Widget, Image, Grid};
-use egui_taffy::{taffy::{self, prelude::TaffyZero, AlignContent, Size, Style}, tui, TuiBuilderLogic};
+use egui_flex::Flex;
+// use egui_taffy::{taffy::{self, prelude::TaffyZero, AlignContent, Size, Style}, tui, TuiBuilderLogic};
 
 use crate::{habr_client::{article::ArticleData, HabrClient}, view_stack::{UiView, ViewStack}, HabreState};
 use crate::widgets::Pager;
@@ -67,49 +68,42 @@ impl ArticlesList {
 
 
 impl UiView for ArticlesList {
-    fn ui(&mut self, ui: &mut Ui, _ctx: &Context, view_stack: &mut crate::view_stack::ViewStack) {
-        tui(ui, ui.id().with("articles_list"))
-            .reserve_available_space()
-            .style(taffy::Style {
-                justify_content: Some(AlignContent::SpaceBetween),
-                flex_direction: taffy::FlexDirection::Column,
-                gap: taffy::Size {width: taffy::LengthPercentage::Length(15.), height: taffy::LengthPercentage::Length(10.)},
-                size: taffy::Size {
-                    width: taffy::Dimension::Percent(1.),
-                    height: taffy::Dimension::Percent(1.),
-                },
-                ..Default::default()
-            })
-            .show(|tui| {
-                tui.style(Style {
-                        flex_direction: taffy::FlexDirection::Column,
-                        gap: Size { height: taffy::LengthPercentage::Length(10.), width: taffy::LengthPercentage::ZERO },
-                        ..Default::default()}
-                ).add(|tui| {
-                    tui.egui_layout(Layout::default().with_cross_align(Align::Center))
-                        .ui_add(Label::new(RichText::new(self.habre_state.borrow().selected_hub_title.as_str()).size(28.)));
-                    tui.separator();
+    fn ui(&mut self, ui: &mut Ui, ctx: &Context, view_stack: &mut crate::view_stack::ViewStack) {
+        Flex::vertical()
+            .justify(egui_flex::FlexJustify::SpaceBetween)
+            .grow_items(0.)
+            .h_full()
+            .w_full()
+            .show(ui, |f_ui| {
+                f_ui.add_flex(egui_flex::item(), egui_flex::Flex::vertical(), |f_ui| {
+                    f_ui.add_ui(egui_flex::item(), |ui| {
+                        ui.with_layout(Layout::default().with_cross_align(Align::Center), |ui| {
+                            ui.add(Label::new(RichText::new(self.habre_state.borrow().selected_hub_title.as_str()).size(28.)));
+                        })
+                    });
+
+                    f_ui.add_ui(egui_flex::item(), |ui| ui.separator());
                 });
 
                 if self.is_loading.load(Ordering::Relaxed) {
-                    tui.egui_layout(Layout::default().with_cross_align(Align::Center)).ui_add(Spinner::new().size(50.));
+                    f_ui.add(egui_flex::item(), Spinner::new().size(50.));
                 } else {
-                    let mut scroll_area = ScrollArea::vertical()
-                        .max_width(tui.egui_ui().available_width())
-                        .hscroll(false)
-                        .scroll_bar_visibility(
-                            eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
-                        );
-                    if self.reset_scroll {
-                        scroll_area = scroll_area.vertical_scroll_offset(0.);
-                        self.reset_scroll = false;
-                    }
+                    f_ui.add_ui(egui_flex::item().shrink(), |ui| {
+                        let mut scroll_area = ScrollArea::vertical()
+                            .max_width(ui.available_width())
+                            .hscroll(false)
+                            .scroll_bar_visibility(
+                                eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
+                            );
+                        if self.reset_scroll {
+                            scroll_area = scroll_area.vertical_scroll_offset(0.);
+                            self.reset_scroll = false;
+                        }
 
-                    tui.style(Style{size: taffy::Size::from_percent(1., 1.), ..Default::default()}).ui(|ui| {
                         scroll_area.show(ui, |ui| {
                             for article in self.articles.read().unwrap().iter() {
                                 ui.with_layout(Layout::top_down_justified(eframe::egui::Align::Min), |ui| {
-                                    if ArticleListItem::ui(ui, article).clicked() {
+                                    if ArticleListItem::ui(ui, ctx, article).clicked() {
                                         self.habre_state.borrow_mut().selected_article = Some(article.clone());
                                         self.article_selected_cb.as_mut().map(|cb| cb(article.clone(), view_stack));
                                     }
@@ -118,23 +112,81 @@ impl UiView for ArticlesList {
                         });
                     });
                 };
-
-                tui.ui(|ui| {
-                    if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui).changed() {
-                        self.get_articles();
-                    }
+                f_ui.add_flex(egui_flex::item(), Flex::vertical().w_full(), |f_ui| {
+                    f_ui.add_ui(egui_flex::item(), |ui| {
+                        if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui).changed() {
+                            self.get_articles();
+                        };
+                    }).response.rect;
                 });
             });
+        // tui(ui, ui.id().with("articles_list"))
+        //     .reserve_available_space()
+        //     .style(taffy::Style {
+        //         justify_content: Some(AlignContent::SpaceBetween),
+        //         flex_direction: taffy::FlexDirection::Column,
+        //         gap: taffy::Size {width: taffy::LengthPercentage::Length(15.), height: taffy::LengthPercentage::Length(10.)},
+        //         size: taffy::Size {
+        //             width: taffy::Dimension::Percent(1.),
+        //             height: taffy::Dimension::Percent(1.),
+        //         },
+        //         ..Default::default()
+        //     })
+        //     .show(|tui| {
+        //         tui.style(Style {
+        //                 flex_direction: taffy::FlexDirection::Column,
+        //                 gap: Size { height: taffy::LengthPercentage::Length(10.), width: taffy::LengthPercentage::ZERO },
+        //                 ..Default::default()}
+        //         ).add(|tui| {
+        //             tui.egui_layout(Layout::default().with_cross_align(Align::Center))
+        //                 .ui_add(Label::new(RichText::new(self.habre_state.borrow().selected_hub_title.as_str()).size(28.)));
+        //             tui.separator();
+        //         });
+
+                // if self.is_loading.load(Ordering::Relaxed) {
+                //     tui.egui_layout(Layout::default().with_cross_align(Align::Center)).ui_add(Spinner::new().size(50.));
+                // } else {
+                //     let mut scroll_area = ScrollArea::vertical()
+                //         .max_width(tui.egui_ui().available_width())
+                //         .hscroll(false)
+                //         .scroll_bar_visibility(
+                //             eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
+                //         );
+                //     if self.reset_scroll {
+                //         scroll_area = scroll_area.vertical_scroll_offset(0.);
+                //         self.reset_scroll = false;
+                //     }
+
+                //     tui.style(Style{size: taffy::Size::from_percent(1., 1.), ..Default::default()}).ui(|ui| {
+                //         scroll_area.show(ui, |ui| {
+                //             for article in self.articles.read().unwrap().iter() {
+                //                 ui.with_layout(Layout::top_down_justified(eframe::egui::Align::Min), |ui| {
+                //                     if ArticleListItem::ui(ui, ctx, article).clicked() {
+                //                         self.habre_state.borrow_mut().selected_article = Some(article.clone());
+                //                         self.article_selected_cb.as_mut().map(|cb| cb(article.clone(), view_stack));
+                //                     }
+                //                 });
+                //             }
+                //         });
+                //     });
+                // };
+
+        //         tui.ui(|ui| {
+        //             if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui).changed() {
+        //                 self.get_articles();
+        //             }
+        //         });
+        //     });
     }
 }
 
 pub struct ArticleListItem;
 
 impl ArticleListItem {
-    pub fn ui(ui: &mut Ui, article: &ArticleData) -> Response {
+    pub fn ui(ui: &mut Ui, ctx: &Context, article: &ArticleData) -> Response {
         let frame = Frame::NONE
             .corner_radius(10.)
-            .fill(Color32::DARK_GRAY)
+            .fill(ctx.theme().default_visuals().extreme_bg_color)
             .inner_margin(15.);
 
         ui.scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
@@ -143,7 +195,7 @@ impl ArticleListItem {
                     let author_txt = RichText::new(article.author.as_str())
                         .strong()
                         .size(16.)
-                        .color(Color32::CYAN);
+                        .color(ctx.theme().default_visuals().hyperlink_color);
 
                     ui.vertical(|ui| {
                         ui.spacing_mut().item_spacing = egui::Vec2::new(0., 5.);
@@ -151,7 +203,7 @@ impl ArticleListItem {
                             .selectable(false)
                             .ui(ui);
 
-                        Label::new(RichText::new(article.published_at.as_str()).size(14.).color(Color32::LIGHT_GRAY))
+                        Label::new(RichText::new(article.published_at.as_str()).size(14.))
                             .selectable(false)
                             .ui(ui);
                     });
@@ -187,7 +239,7 @@ impl ArticleListItem {
                                 .ui(ui);
                         };
 
-                        Label::new(RichText::new(format!("🕑 {} мин", article.reading_time)).size(18.).color(Color32::LIGHT_GRAY))
+                        Label::new(RichText::new(format!("🕑 {} мин", article.reading_time)).size(18.))
                             .selectable(false)
                             .ui(ui);
                     });

@@ -201,11 +201,32 @@ fn parse_recursively<'a>(element: &ElementRef<'a>) -> Vec<ArticleContent> {
                 vec![]
             }
         }
+        "figure" => {
+            if let Some(image_child) = element.first_child() {
+                return parse_recursively(&ElementRef::wrap(image_child).unwrap())
+            }
+            vec![]
+        }
         "p" => vec![ArticleContent::Paragraph(extract_paragraph_content(element))],
         "h2" => vec![ArticleContent::Header(2, get_element_text(element))],
         "h3" => vec![ArticleContent::Header(3, get_element_text(element))],
         "h4" => vec![ArticleContent::Header(4, get_element_text(element))],
-        "code" | "pre" => {
+        "pre" => {
+            if let Some(f_child) = element.first_child() {
+                if let Some(text) = f_child.value().as_text() {
+                    return vec![ArticleContent::Code{
+                        lang: element.attr("class").unwrap_or("").to_string(),
+                        content: text.to_string()
+                    }]
+                }
+                return parse_recursively(&ElementRef::wrap(f_child).unwrap())
+            }
+            vec![ArticleContent::Code{
+                lang: element.attr("class").unwrap_or("").to_string(),
+                content: get_element_text(element)
+            }]
+        }
+        "code" => {
             vec![ArticleContent::Code{
                 lang: element.attr("class").unwrap_or("").to_string(),
                 content: get_element_text(element)
@@ -253,7 +274,7 @@ fn parse_recursively<'a>(element: &ElementRef<'a>) -> Vec<ArticleContent> {
             vec![ArticleContent::BR]
         }
         _tag @ _ => {
-            log::warn!("[!] Unsupported tag: {} with content: {}, {:?}", _tag, get_element_text(element), element.attr("class"));
+            log::warn!("[!] Unsupported tag: {} with content: {}, {:?}", _tag, element.html(), element.attr("class"));
             vec![]
         }
     }
