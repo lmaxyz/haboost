@@ -14,7 +14,6 @@ egui_extras = { version = "0.32", default-features = false, features = [
     "image",
     "http",
 ] }
-egui_taffy = "0.7"
 egui_flex = "0.4"
 egui-theme-switch = "0.4.0"
 egui_virtual_list = "*"
@@ -69,5 +68,5 @@ assets = [
 winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
 # winit = { path = "../../rust/winit" }
 glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }
-
+egui = { git = "https://github.com/lmaxyz/egui", branch = "main" }
 # wgpu = { git = "https://github.com/lmaxyz/wgpu", branch = "v23" }

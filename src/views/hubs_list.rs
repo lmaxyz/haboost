@@ -5,7 +5,6 @@ use std::{
 
 use eframe::egui::{self, Image, Label, Layout, Response, RichText, ScrollArea, Sense, Spinner, TextEdit, Ui, UiBuilder, Widget};
 use egui_flex::Flex;
-// use egui_taffy::{taffy::{self, prelude::TaffyZero}, TuiBuilderLogic};
 
 use crate::{habr_client::hub::{get_hubs, HubItem}, HabreState};
 use crate::widgets::Pager;
@@ -113,78 +112,6 @@ impl HubsList {
 
 impl UiView for HubsList {
     fn ui(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context, view_stack: &mut ViewStack) {
-        // egui_taffy::tui(ui, ui.id().with("hubs_list"))
-        //     .reserve_available_space()
-        //     .style(taffy::Style {
-        //         justify_content: Some(taffy::AlignContent::SpaceBetween),
-        //         flex_direction: taffy::FlexDirection::Column,
-        //         gap: taffy::Size {width: taffy::LengthPercentage::Length(15.), height: taffy::LengthPercentage::Length(10.)},
-        //         size: taffy::Size {
-        //             width: taffy::Dimension::Percent(1.),
-        //             height: taffy::Dimension::Percent(1.),
-        //         },
-        //         ..Default::default()
-        //     })
-        //     .show(|tui| {
-        //         tui.style(taffy::Style {
-        //                 flex_direction: taffy::FlexDirection::Column,
-        //                 gap: taffy::Size { height: taffy::LengthPercentage::Length(10.), width: taffy::LengthPercentage::ZERO },
-        //                 ..Default::default()}
-        //         ).add(|tui| {
-        //             tui.egui_layout(Layout::default().with_cross_align(egui::Align::Center))
-        //                 .ui_add(egui::Label::new(RichText::new("Хабы").size(30.)));
-        //             let settings_rect = egui::Rect::from_min_size((tui.egui_ui().available_width()-40., 10.).into(), (40.,40.).into());
-        //             if tui.egui_ui_mut().put(settings_rect, egui::Button::new(RichText::new("⚙").size(28.))).clicked() {
-        //                 view_stack.push(self.habre_state.borrow().settings.clone());
-        //             }
-        //             tui.separator();
-
-        //             tui.ui(|ui| {
-        //                 self.search_ui(ui)
-        //             });
-        //         });
-        //         if self.is_loading.load(Ordering::Relaxed) {
-        //             tui.egui_layout(Layout::default().with_cross_align(egui::Align::Center)).ui_add(Spinner::new().size(50.));
-        //         } else {
-        //             let mut scroll_area = ScrollArea::vertical()
-        //                 .max_width(tui.egui_ui().available_width())
-        //                 .hscroll(false)
-        //                 .scroll_bar_visibility(
-        //                     eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
-        //                 );
-
-        //             if self.reset_scroll_area {
-        //                 scroll_area = scroll_area.vertical_scroll_offset(0.);
-        //                 self.reset_scroll_area = false;
-        //             }
-
-        //             tui.style(taffy::Style { size: taffy::Size::from_percent(1., 1.), ..Default::default() }).ui(|ui| {
-        //                 scroll_area.show(ui, |ui| {
-        //                     for hub in self.hubs.read().unwrap().iter() {
-        //                         if HubListItem::ui(ui, hub).clicked() {
-        //                             {
-        //                                 let mut state = self.habre_state.borrow_mut();
-        //                                 state.selected_hub_id = hub.alias.clone();
-        //                                 state.selected_hub_title = hub.title.clone();
-        //                             }
-
-        //                             self.hub_selected_cb.as_mut().map(|cb| {
-        //                                 cb(hub.id.clone(), view_stack);
-        //                             });
-        //                         }
-
-        //                         ui.separator();
-        //                     }
-        //                 });
-        //             });
-        //         }
-        //         tui.ui(|ui| {
-        //             if Pager::new(&mut self.current_page, self.max_page.load(Ordering::Relaxed)).ui(ui).changed() {
-        //                 self.get_hubs();
-        //             };
-        //         })
-        //     });
-
         egui_flex::Flex::vertical()
             .align_items(egui_flex::FlexAlign::Center)
             .justify(egui_flex::FlexJustify::SpaceBetween)
@@ -192,7 +119,7 @@ impl UiView for HubsList {
             .h_full()
             .w_full()
             .show(ui, |f_ui| {
-                f_ui.add_flex(egui_flex::item(), egui_flex::Flex::vertical(), |f_ui| {
+                f_ui.add_flex(egui_flex::item(), egui_flex::Flex::vertical().gap(egui::Vec2::new(10., 5.)), |f_ui| {
                     let settings_rect = egui::Rect::from_min_size((f_ui.ui().available_width()-40., 10.).into(), (40.,40.).into());
                     f_ui.add_ui(egui_flex::item(), |ui| {
                         ui.with_layout(Layout::default().with_cross_align(egui::Align::Center), |ui| {
@@ -284,11 +211,11 @@ impl HubListItem {
                             .ui(ui);
                     }).response
                 });
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    ui.add_space(5.);
+                // ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    // ui.add_space(5.);
                 //     let bookmark_icon = Image::from_bytes("bytes://bookmark", BOOKMARK_ICON).fit_to_exact_size((30., 30.).into());
                 //     ui.add(egui::ImageButton::new(bookmark_icon))
-                });
+                // });
             })
         }).response
     }

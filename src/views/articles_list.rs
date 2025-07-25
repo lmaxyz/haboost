@@ -102,7 +102,7 @@ impl UiView for ArticlesList {
 
                         scroll_area.show(ui, |ui| {
                             for article in self.articles.read().unwrap().iter() {
-                                ui.with_layout(Layout::top_down_justified(eframe::egui::Align::Min), |ui| {
+                                ui.with_layout(Layout::top_down_justified(eframe::egui::Align::TOP), |ui| {
                                     if ArticleListItem::ui(ui, ctx, article).clicked() {
                                         self.habre_state.borrow_mut().selected_article = Some(article.clone());
                                         self.article_selected_cb.as_mut().map(|cb| cb(article.clone(), view_stack));
@@ -185,13 +185,14 @@ pub struct ArticleListItem;
 impl ArticleListItem {
     pub fn ui(ui: &mut Ui, ctx: &Context, article: &ArticleData) -> Response {
         let frame = Frame::NONE
-            .corner_radius(10.)
+            .corner_radius(5.)
             .fill(ctx.theme().default_visuals().extreme_bg_color)
-            .inner_margin(15.);
+            .inner_margin(10.);
 
         ui.scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
             frame.show(ui, |ui| {
-                ui.with_layout(Layout::top_down(egui::Align::Min).with_cross_justify(true), |ui| {
+                ui.with_layout(Layout::top_down_justified(egui::Align::TOP), |ui| {
+                    ui.set_width(ui.available_width());
                     let author_txt = RichText::new(article.author.as_str())
                         .strong()
                         .size(16.)
@@ -258,13 +259,11 @@ impl ArticleListItem {
                     //     }
                     // });
 
-                    ui.horizontal_wrapped(|ui| {
+                    ui.horizontal(|ui| {
                         Label::new(RichText::new(article.title.as_str()).size(20.).strong())
+                            .wrap()
                             .selectable(false)
                             .ui(ui);
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.add_space(5.);
-                        });
                     })
                 })
             });

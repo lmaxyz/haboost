@@ -1,7 +1,7 @@
 use std::rc::Rc;
 use std::cell::RefCell;
 use eframe::egui;
-use eframe::egui::{Color32, Pos2, Rect, TouchPhase, Vec2};
+use eframe::egui::{Pos2, Rect, TouchPhase, Vec2};
 
 pub struct ViewStack {
     backwarder: Backward,
@@ -61,21 +61,25 @@ struct Backward {
 impl Backward {
     pub fn ui(&mut self, ui:  &mut egui::Ui) {
         let ready_to_activate = self.start_pos_offset.x >= self.activate_threshold;
+        let size = 45.;
+        let y_pos = 10.;
+        let arrow_length = size / 2.0;
+
         let x_offset = if self.started() {
             if ready_to_activate {
                 0.
             } else {
-                self.start_pos_offset.x / 4. - 50.
+                self.start_pos_offset.x / (self.activate_threshold/size) - size
             }
         } else {
-            -50.
+            -(size)
             // 0.
         };
-        let rect = Rect::from_min_size((x_offset, 50.).into(), (50., 50.).into());
-        let stroke = egui::Stroke::new(2., if ready_to_activate {Color32::WHITE} else {Color32::LIGHT_GRAY});
+        let rect = Rect::from_min_size((x_offset, y_pos).into(), (size, size).into());
+        let stroke = egui::Stroke::new(2., if ready_to_activate {ui.visuals().strong_text_color()} else {ui.visuals().weak_text_color()});
         let painter = ui.painter_at(rect);
-        painter.rect(rect, 10, if ready_to_activate {Color32::GRAY} else {Color32::DARK_GRAY}, stroke, egui::StrokeKind::Inside);
-        painter.arrow(Pos2::new(x_offset + 40., 75.), Vec2::new(-30., 0.), stroke);
+        painter.rect(rect, 6, ui.visuals().extreme_bg_color, stroke, egui::StrokeKind::Inside);
+        painter.arrow(Pos2::new(x_offset + ((size-arrow_length) / 2.0) + arrow_length, (size / 2.0) + y_pos), Vec2::new(-(arrow_length), 0.), stroke);
     }
 
     pub fn check_input(&mut self, ui: &mut egui::Ui) {
