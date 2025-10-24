@@ -57,7 +57,7 @@ impl HubsList {
             .hint_text(RichText::new("Поиск").size(24.))
             .show(ui).response;
 
-        if search_edit.has_focus() && !self.search_text.is_empty() {
+        if !self.search_text.is_empty() && (search_edit.has_focus() || search_edit.lost_focus()) {
             let mut new_rect = search_edit.rect.clone();
             new_rect.set_left(new_rect.right() - new_rect.height());
             new_rect = new_rect.shrink(5.);
@@ -65,6 +65,7 @@ impl HubsList {
             if ui.allocate_rect(new_rect, egui::Sense::CLICK).clicked() {
                 self.search_text.clear();
                 self.search_was_changed = true;
+                search_edit.request_focus();
             }
 
             let painter = ui.painter_at(new_rect);
@@ -113,17 +114,18 @@ impl HubsList {
 impl UiView for HubsList {
     fn ui(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context, view_stack: &mut ViewStack) {
         egui_flex::Flex::vertical()
-            .align_items(egui_flex::FlexAlign::Center)
+            .align_items(egui_flex::FlexAlign::Start)
             .justify(egui_flex::FlexJustify::SpaceBetween)
             .grow_items(0.)
             .h_full()
             .w_full()
             .show(ui, |f_ui| {
-                f_ui.add_flex(egui_flex::item(), egui_flex::Flex::vertical().gap(egui::Vec2::new(10., 5.)), |f_ui| {
-                    let settings_rect = egui::Rect::from_min_size((f_ui.ui().available_width()-40., 10.).into(), (40.,40.).into());
+                f_ui.add_flex(egui_flex::item().shrink(), egui_flex::Flex::vertical().gap(egui::Vec2::new(10., 5.)), |f_ui| {
+                    let settings_top_point = f_ui.ui().available_rect_before_wrap().top();
+                    let settings_rect = egui::Rect::from_min_size((f_ui.ui().available_width()-38., settings_top_point).into(), (38.,38.).into());
                     f_ui.add_ui(egui_flex::item(), |ui| {
                         ui.with_layout(Layout::default().with_cross_align(egui::Align::Center), |ui| {
-                            egui::Label::new(RichText::new("Хабы").size(30.)).ui(ui);
+                            egui::Label::new(RichText::new("Хабы").size(30.)).ui(ui)
                         });
 
                         if ui.put(settings_rect, egui::Button::new(RichText::new("⚙").size(28.))).clicked() {
@@ -136,44 +138,47 @@ impl UiView for HubsList {
                     f_ui.add_ui(egui_flex::item(), |ui| {
                         self.search_ui(ui);
                     });
+                    f_ui.add_ui(egui_flex::item(), |ui| ui.add_space(10.));
+
+                    if !self.is_loading.load(Ordering::Relaxed) {
+                        f_ui.add_ui(egui_flex::item().shrink(), |ui| {
+                            let mut scroll_area = ScrollArea::vertical()
+                                .max_width(ui.available_width())
+                                .hscroll(false)
+                                .scroll_bar_visibility(
+                                    eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
+                                );
+
+                            if self.reset_scroll_area {
+                                scroll_area = scroll_area.vertical_scroll_offset(0.);
+                                self.reset_scroll_area = false;
+                            }
+
+                            scroll_area.show(ui, |ui| {
+                                for (index, hub) in self.hubs.read().unwrap().iter().enumerate() {
+                                    if index > 0 {
+                                        ui.separator();
+                                    }
+
+                                    if HubListItem::ui(ui, hub).clicked() {
+                                        {
+                                            let mut state = self.habre_state.borrow_mut();
+                                            state.selected_hub_id = hub.alias.clone();
+                                            state.selected_hub_title = hub.title.clone();
+                                        }
+
+                                        self.hub_selected_cb.as_mut().map(|cb| {
+                                            cb(hub.id.clone(), view_stack);
+                                        });
+                                    }
+                                }
+                            })
+                        });
+                    }
                 });
 
                 if self.is_loading.load(Ordering::Relaxed) {
-                    f_ui.add(egui_flex::item(), Spinner::new().size(50.));
-                } else {
-                    f_ui.add_ui(egui_flex::item().shrink(), |ui| {
-                        let mut scroll_area = ScrollArea::vertical()
-                            .max_width(ui.available_width())
-                            .hscroll(false)
-                            .scroll_bar_visibility(
-                                eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
-                            );
-
-                        if self.reset_scroll_area {
-                            scroll_area = scroll_area.vertical_scroll_offset(0.);
-                            self.reset_scroll_area = false;
-                        }
-
-                        scroll_area.show(ui, |ui| {
-                            for (index, hub) in self.hubs.read().unwrap().iter().enumerate() {
-                                if index > 0 {
-                                    ui.separator();
-                                }
-
-                                if HubListItem::ui(ui, hub).clicked() {
-                                    {
-                                        let mut state = self.habre_state.borrow_mut();
-                                        state.selected_hub_id = hub.alias.clone();
-                                        state.selected_hub_title = hub.title.clone();
-                                    }
-
-                                    self.hub_selected_cb.as_mut().map(|cb| {
-                                        cb(hub.id.clone(), view_stack);
-                                    });
-                                }
-                            }
-                        })
-                    });
+                    f_ui.add(egui_flex::item().align_self(egui_flex::FlexAlign::Center), Spinner::new().size(50.));
                 }
 
                 f_ui.add_flex(egui_flex::item(), Flex::vertical().w_full(), |f_ui| {
