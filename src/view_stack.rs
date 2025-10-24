@@ -62,7 +62,7 @@ impl Backward {
     pub fn ui(&mut self, ui:  &mut egui::Ui) {
         let ready_to_activate = self.start_pos_offset.x >= self.activate_threshold;
         let size = 45.;
-        let y_pos = 10.;
+        let y_pos = ui.clip_rect().top() + 10.;
         let arrow_length = size / 2.0;
 
         let x_offset = if self.started() {
