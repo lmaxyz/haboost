@@ -3,7 +3,9 @@ use std::cell::RefCell;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
-use eframe::egui::{self, Color32, Context, Image, Label, Layout, OpenUrl, RichText, ScrollArea, Spinner, Ui, Widget, scroll_area::ScrollSource};
+#[cfg(target_arch = "x86_64")]
+use eframe::egui::OpenUrl;
+use eframe::egui::{self, Color32, Context, Image, Label, Layout, RichText, ScrollArea, Spinner, Ui, Widget, scroll_area::ScrollSource};
 
 use crate::view_stack::UiView;
 use crate::HabreState;
@@ -172,7 +174,7 @@ impl UiView for ArticleDetails {
                     }
                 });
                 if self.image_viewer.image_url.is_some() {
-                    ui.put(ctx.screen_rect(), |ui: &mut egui::Ui| {
+                    ui.put(ctx.content_rect(), |ui: &mut egui::Ui| {
                         egui::Frame::NONE
                             .fill(Color32::from_black_alpha(200))
                             .outer_margin(0)
@@ -205,7 +207,7 @@ impl ImageViewer {
         if let Some(image_url) = self.image_url.as_ref() {
             let image_url = image_url.clone();
             ui.with_layout(Layout::top_down_justified(eframe::egui::Align::Center), |ui| {
-                let cross_rect = egui::Rect::from_center_size((ui.available_width()-25., 25.).into(), (25., 25.).into());
+                let cross_rect = egui::Rect::from_center_size((ui.available_width() - 25., ui.clip_rect().top() + 25.).into(), (25., 25.).into());
 
                 if ui.allocate_rect(cross_rect, egui::Sense::CLICK).clicked() {
                     self.image_url = None;
