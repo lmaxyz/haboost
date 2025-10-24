@@ -10,6 +10,7 @@ pub struct SettingsData {
     font_size: f32,
     scale_factor: f32,
     dark_theme: bool,
+    use_system_background: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -24,12 +25,17 @@ impl Settings {
     pub fn scale_factor(&self) -> f32 {
         self.saved_data.scale_factor
     }
+
     pub fn theme(&self) -> egui::ThemePreference {
         if self.saved_data.dark_theme {
             egui::ThemePreference::Dark
         } else {
             egui::ThemePreference::Light
         }
+    }
+
+    pub fn use_system_background(&self) -> bool {
+        self.saved_data.use_system_background
     }
 
     fn save_settings(&mut self) {
@@ -54,7 +60,6 @@ impl Settings {
             } else {
                 None
             }
-
         } else {
             None
         }
@@ -69,6 +74,10 @@ impl UiView for Settings {
         let theme_selector = ui.add(ThemeSwitch::new(&mut self.temp_theme));
         if theme_selector.changed() {
             self.temp_data.dark_theme = self.temp_theme == egui::ThemePreference::Dark;
+        }
+
+        if ui.radio(self.temp_data.use_system_background, "Использовать системный фон").clicked() {
+            self.temp_data.use_system_background = !self.temp_data.use_system_background
         }
 
         ui.label(egui::RichText::new("Коэффициент масштабирования").size(self.saved_data.font_size));
@@ -94,6 +103,7 @@ impl Default for Settings {
             #[cfg(target_arch = "x86_64")]
             scale_factor: 1.,
             dark_theme: true,
+            use_system_background: false,
         };
         Self {
             temp_data: data,
