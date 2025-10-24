@@ -1,7 +1,7 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use eframe::egui;
+use eframe::egui::{self, Color32};
 use eframe::epaint::text::{FontInsert, InsertFontFamily};
 
 mod habr_client;
@@ -23,12 +23,10 @@ use view_stack::{ViewStack, UiView};
 
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
+    let viewport = egui::ViewportBuilder::default()
+        .with_transparent(true);
     let options = eframe::NativeOptions {
-        viewport: egui::ViewportBuilder {
-            #[cfg(not(target_arch = "arm"))]
-            max_inner_size: Some((360., 720.).into()),
-            ..Default::default()
-        },
+        viewport: viewport,
         renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
@@ -80,8 +78,26 @@ impl Default for MyApp {
 }
 
 impl eframe::App for MyApp {
+    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
+        Color32::TRANSPARENT.to_normalized_gamma_f32()
+    }
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        egui::CentralPanel::default().show(ctx, |ui| {
+        let mut top_panel = egui::TopBottomPanel::top("top_bar")
+            .exact_height(41.0)
+            .show_separator_line(false);
+
+        let mut central_panel = egui::CentralPanel::default();
+
+        if self.state.borrow().settings.borrow().use_system_background() {
+            let frame = egui::Frame::default().fill(Color32::TRANSPARENT);
+            top_panel = top_panel.frame(frame);
+
+            let frame = egui::Frame::default().inner_margin(10.).fill(Color32::TRANSPARENT);
+            central_panel = central_panel.frame(frame);
+        }
+
+        top_panel.show(ctx, |_| {});
+        central_panel.show(ctx, |ui| {
             ctx.set_pixels_per_point(self.state.borrow().settings.borrow().scale_factor());
             ctx.set_theme(self.state.borrow().settings.borrow().theme());
             ui.spacing_mut().item_spacing = egui::Vec2::new(15., 15.);
