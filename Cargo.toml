@@ -1,15 +1,10 @@
 [package]
 name = "haboost"
 version = "0.6.0"
-edition = "2021"
+edition = "2024"
 
 [dependencies]
-eframe = { version = "0.33", default-features = false, features = [
-    "glow",
-    "default_fonts",
-    "wayland",
-    "accesskit",
-] }
+eframe = { version = "0.33", features = ["wgpu"]}
 egui_extras = { version = "0.33", default-features = false, features = [
     "image",
     "http",
@@ -65,4 +60,4 @@ assets = [
 
 [patch.crates-io]
 winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
-glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }
+# glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }

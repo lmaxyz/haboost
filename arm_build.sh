@@ -12,7 +12,7 @@ CURRENT_DIR="$(pwd)";
 TARGET=armv7-unknown-linux-gnueabihf
 
 aurora_psdk="$PSDK_DIR/sdk-chroot"
-PKG_VERSION="$(cargo pkgid | cut -d @ -f 2)"
+PKG_VERSION="$(cargo pkgid | cut -d '#' -f 2)"
 
 mkdir -p RPMS/
 
