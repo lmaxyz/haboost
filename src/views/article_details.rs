@@ -9,7 +9,7 @@ use eframe::egui::{self, Color32, Context, Image, Label, Layout, RichText, Scrol
 
 use crate::view_stack::UiView;
 use crate::HabreState;
-use crate::habr_client::{HabrClient, TypedText};
+use crate::habr_client::{HabrClient, html_parse::TypedText};
 use crate::habr_client::article::{ArticleContent};
 
 

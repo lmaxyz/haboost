@@ -6,7 +6,7 @@ use std::{
 use eframe::egui::{self, Image, Label, Layout, Response, RichText, ScrollArea, Sense, Spinner, TextEdit, Ui, UiBuilder, Widget};
 use egui_flex::Flex;
 
-use crate::{habr_client::hub::{get_hubs, HubItem}, HabreState};
+use crate::{habr_client::hub::{get_hubs, Hub}, HabreState};
 use crate::widgets::Pager;
 use crate::{UiView, ViewStack};
 
@@ -14,7 +14,7 @@ use crate::{UiView, ViewStack};
 
 pub struct HubsList {
     pub is_loading: Arc<AtomicBool>,
-    hub_selected_cb: Option<Box<dyn FnMut(String, &mut ViewStack)>>,
+    hub_selected_cb: Option<Box<dyn FnMut(&Hub, &mut ViewStack)>>,
 
     search_text: String,
     search_was_changed: bool,
@@ -23,7 +23,7 @@ pub struct HubsList {
     reset_scroll_area: bool,
     current_page: u8,
     max_page: Arc<AtomicU8>,
-    hubs: Arc<RwLock<Vec<HubItem>>>,
+    hubs: Arc<RwLock<Vec<Hub>>>,
 }
 
 impl HubsList {
@@ -46,7 +46,7 @@ impl HubsList {
     }
 
     pub fn on_hub_selected<F>(&mut self, callback: F)
-    where F: FnMut(String, &mut ViewStack) + 'static {
+    where F: FnMut(&Hub, &mut ViewStack) + 'static {
         self.hub_selected_cb = Some(Box::new(callback));
     }
 
@@ -160,15 +160,14 @@ impl UiView for HubsList {
                                         ui.separator();
                                     }
 
-                                    if HubListItem::ui(ui, hub).clicked() {
+                                    if HubUI::ui(ui, hub).clicked() {
                                         {
                                             let mut state = self.habre_state.borrow_mut();
-                                            state.selected_hub_id = hub.alias.clone();
-                                            state.selected_hub_title = hub.title.clone();
+                                            state.selected_hub = Some(hub.clone());
                                         }
 
                                         self.hub_selected_cb.as_mut().map(|cb| {
-                                            cb(hub.id.clone(), view_stack);
+                                            cb(hub, view_stack);
                                         });
                                     }
                                 }
@@ -192,10 +191,10 @@ impl UiView for HubsList {
     }
 }
 
-pub struct HubListItem;
+pub struct HubUI;
 
-impl HubListItem {
-    pub fn ui(ui: &mut Ui, hub: &HubItem) -> Response {
+impl HubUI {
+    pub fn ui(ui: &mut Ui, hub: &Hub) -> Response {
         let img_size = egui::Vec2::splat(ui.available_width()/5.);
         ui.scope_builder(UiBuilder::new().id_salt(&hub.alias).sense(Sense::click()), |ui| {
             ui.horizontal(|ui| {
