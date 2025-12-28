@@ -4,8 +4,8 @@ use reqwest::Error;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-#[derive(Serialize, Deserialize, Debug)]
-pub struct HubItem {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Hub {
     pub id: String,
     pub alias: String,
     #[serde(alias = "titleHtml")]
@@ -25,10 +25,10 @@ struct HubsResponse {
     #[serde(rename(deserialize = "hubIds"))]
     hub_ids: Vec<serde_json::Value>,
     #[serde(rename(deserialize = "hubRefs"))]
-    hub_refs: HashMap<String, HubItem>,
+    hub_refs: HashMap<String, Hub>,
 }
 
-pub async fn get_hubs(page: u8, search_text: String) -> Result<(Vec<HubItem>, usize), Error> {
+pub async fn get_hubs(page: u8, search_text: String) -> Result<(Vec<Hub>, usize), Error> {
     let url = if search_text.is_empty() {
         "https://habr.com/kek/v2/hubs"
     } else {
@@ -51,10 +51,10 @@ pub async fn get_hubs(page: u8, search_text: String) -> Result<(Vec<HubItem>, us
     let resp_parsed: HubsResponse = serde_json::from_slice(&resp.bytes().await.unwrap())
         .expect("[!] Error with response parsing");
 
-    let mut hubs: Vec<HubItem> = resp_parsed.hub_refs.into_values().collect();
+    let mut hubs: Vec<Hub> = resp_parsed.hub_refs.into_values().collect();
 
     hubs.sort_by(|f, s| f.title.cmp(&s.title));
-    hubs.iter_mut().for_each(|h| h.title = crate::habr_client::extract_text_from_html(&h.title) );
+    hubs.iter_mut().for_each(|h| h.title = super::html_parse::extract_text_from_html(&h.title) );
 
     Ok((hubs, resp_parsed.pages_count))
 }

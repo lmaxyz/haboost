@@ -17,6 +17,7 @@ use views::article_details::ArticleDetails;
 use views::settings::Settings;
 
 use habr_client::article::ArticleData;
+use habr_client::hub::Hub;
 
 use view_stack::{ViewStack, UiView};
 
@@ -62,7 +63,8 @@ impl Default for MyApp {
         });
 
         hubs_list.borrow_mut().on_hub_selected({
-            move |_selected_hub_alias, view_stack| {
+            let articles_list = articles_list.clone();
+            move |_selected_hub, view_stack| {
                 articles_list.borrow_mut().get_articles();
                 view_stack.push(articles_list.clone());
         }});
@@ -128,11 +130,10 @@ fn add_font(ctx: &egui::Context) {
 
 #[derive(Debug)]
 struct HabreState {
-    selected_hub_id: String,
-    selected_hub_title: String,
-    settings: Rc<RefCell<Settings>>,
-
+    selected_hub: Option<Hub>,
     selected_article: Option<ArticleData>,
+
+    settings: Rc<RefCell<Settings>>,
     tokio_rt: tokio::runtime::Runtime,
 }
 
@@ -146,8 +147,7 @@ impl HabreState {
 
         Self {
             tokio_rt,
-            selected_hub_id: String::new(),
-            selected_hub_title: String::new(),
+            selected_hub: None,
             selected_article: None,
 
             settings: Rc::new(RefCell::new(Settings::read_from_file().unwrap_or_else(Default::default))),

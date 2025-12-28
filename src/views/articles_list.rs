@@ -2,12 +2,20 @@ use std::sync::{Arc, RwLock, atomic::{AtomicBool, AtomicU8, Ordering}};
 use std::rc::Rc;
 use std::cell::RefCell;
 
-use eframe::egui::{self, Align, Color32, Context, Frame, Label, Layout, Response, RichText, ScrollArea, Sense, Spinner, Ui, UiBuilder, Widget, Image, Grid};
+use eframe::egui::{self, TextEdit, Color32, Context, Frame, Grid, Image, Label, Layout, Response, RichText, ScrollArea, Sense, Spinner, Ui, UiBuilder, Widget};
 use egui_flex::Flex;
 // use egui_taffy::{taffy::{self, prelude::TaffyZero, AlignContent, Size, Style}, tui, TuiBuilderLogic};
 
-use crate::{habr_client::{article::ArticleData, HabrClient}, view_stack::{UiView, ViewStack}, HabreState};
-use crate::widgets::Pager;
+use crate::{
+    HabreState,
+    view_stack::{UiView, ViewStack},
+    habr_client::{
+        HabrClient,
+        article::{ArticleData, ArticlesListSorting, ArticlesListFilter, DateFilter, ArticlesSearchSorting, ComplexityFilter},
+    },
+    widgets::Pager,
+};
+
 
 pub struct ArticlesList {
     pub is_loading: Arc<AtomicBool>,
@@ -17,6 +25,15 @@ pub struct ArticlesList {
     reset_scroll: bool,
     articles: Arc<RwLock<Vec<ArticleData>>>,
     habr_client: HabrClient,
+
+    sorting: ArticlesListSorting,
+    rating_filter: Option<usize>,
+    date_filter: DateFilter,
+    complexity_filter: Option<ComplexityFilter>,
+
+    search_text: String,
+    search_was_changed: bool,
+    search_sorting: ArticlesSearchSorting,
 
     current_page: u8,
     max_page: Arc<AtomicU8>,
@@ -36,6 +53,17 @@ impl ArticlesList {
             is_loading: Arc::new(AtomicBool::new(true)),
             current_page: 1,
             max_page: Arc::new(AtomicU8::new(0)),
+
+            sorting: ArticlesListSorting::default(),
+            rating_filter: None,
+            date_filter: DateFilter::Daily,
+            complexity_filter: None,
+
+            search_text: String::new(),
+            search_was_changed: false,
+            search_sorting: ArticlesSearchSorting::Relevance,
+
+            // search_sort:
         }
     }
 
@@ -49,20 +77,75 @@ impl ArticlesList {
         self.reset_scroll = true;
 
         let client = self.habr_client.clone();
-        let hub_id = self.habre_state.borrow().selected_hub_id.clone();
+        let hub_id = self.habre_state.borrow()
+            .selected_hub.as_ref()
+            .map_or(String::new(), |hub| hub.alias.to_string());
         let articles = self.articles.clone();
         let max_page = self.max_page.clone();
         let is_loading = self.is_loading.clone();
         let current_page = self.current_page;
 
+        let sorting = self.sorting;
+        let filter = match self.sorting {
+            ArticlesListSorting::Best => {
+                ArticlesListFilter::ByDate(self.date_filter)
+            },
+            ArticlesListSorting::Newest => {
+                ArticlesListFilter::ByRating(self.rating_filter)
+            }
+        };
+
+        let search_sorting = self.search_sorting;
+        let search_text = self.search_text.clone();
+
         self.habre_state.borrow().async_handle().spawn(async move {
-            let (new_articles, new_max_page) = client.get_articles(&hub_id, current_page).await.unwrap();
+
+            let (new_articles, new_max_page) = if search_text.is_empty() {
+                client.get_articles(hub_id, sorting, filter, current_page).await.unwrap()
+            } else {
+                client.search_articles(&search_text, search_sorting, current_page).await.unwrap()
+            };
+
             max_page.store(new_max_page as u8, Ordering::Relaxed);
             if let Ok(mut current_articles) = articles.write() {
                 *current_articles = new_articles;
             }
             is_loading.store(false, Ordering::Relaxed);
         });
+    }
+
+    fn search_ui(&mut self, ui: &mut Ui) {
+        let search_edit = TextEdit::singleline(&mut self.search_text)
+            .desired_width(f32::INFINITY)
+            .font(egui::epaint::text::FontId::proportional(24.))
+            .hint_text(RichText::new("Поиск").size(24.))
+            .show(ui).response;
+
+        if !self.search_text.is_empty() && (search_edit.has_focus() || search_edit.lost_focus()) {
+            let mut new_rect = search_edit.rect.clone();
+            new_rect.set_left(new_rect.right() - new_rect.height());
+            new_rect = new_rect.shrink(5.);
+
+            if ui.allocate_rect(new_rect, egui::Sense::CLICK).clicked() {
+                self.search_text.clear();
+                self.search_was_changed = true;
+                search_edit.request_focus();
+            }
+
+            let painter = ui.painter_at(new_rect);
+            painter.line_segment([new_rect.left_top(), new_rect.right_bottom()], egui::Stroke::new(3.0, egui::Color32::LIGHT_GRAY));
+            painter.line_segment([new_rect.right_top(), new_rect.left_bottom()], egui::Stroke::new(3.0, egui::Color32::LIGHT_GRAY));
+        }
+
+        if !search_edit.has_focus() && self.search_was_changed {
+            self.current_page = 1;
+            self.get_articles();
+            self.search_was_changed = false;
+        }
+
+        if search_edit.changed() {
+            self.search_was_changed = true;
+        }
     }
 }
 
@@ -75,11 +158,71 @@ impl UiView for ArticlesList {
             .h_full()
             .w_full()
             .show(ui, |f_ui| {
-                f_ui.add_flex(egui_flex::item(), egui_flex::Flex::vertical(), |f_ui| {
+                f_ui.add_flex(egui_flex::item(), egui_flex::Flex::vertical().align_items(egui_flex::FlexAlign::Start), |f_ui| {
                     f_ui.add_ui(egui_flex::item(), |ui| {
-                        ui.with_layout(Layout::default().with_cross_align(Align::Center), |ui| {
-                            ui.add(Label::new(RichText::new(self.habre_state.borrow().selected_hub_title.as_str()).size(28.)));
-                        })
+                        let article_list_title = RichText::new(self.habre_state.borrow()
+                            .selected_hub.as_ref()
+                            .map_or("Все статьи", |hub| &hub.title)
+                        ).size(28.).strong();
+                        ui.add(Label::new(article_list_title))
+                    });
+
+                    f_ui.add_ui(egui_flex::item(), |ui| {
+                        self.search_ui(ui)
+                    });
+
+                    f_ui.add_ui(egui_flex::item().align_self_content(egui::Align2::RIGHT_BOTTOM), |ui| {
+                        if self.search_text.is_empty() {
+                            ui.collapsing(RichText::new("Сортировка и фильтрация").size(18.), |collapse_ui| {
+                                collapse_ui.label(RichText::new("Сначала показывать").size(16.).strong());
+                                collapse_ui.horizontal(|h_ui| {
+                                    h_ui.selectable_value(&mut self.sorting, ArticlesListSorting::Newest, RichText::new("Новые").size(16.));
+                                    h_ui.selectable_value(&mut self.sorting, ArticlesListSorting::Best, RichText::new("Лучшие").size(16.));
+                                });
+
+                                match self.sorting {
+                                    ArticlesListSorting::Newest => {
+                                        // collapse_ui.label(RichText::new("Порог рейтинга").size(16.).strong());
+                                        // collapse_ui.horizontal(|h_ui| {
+                                        //     h_ui.radio_value(&mut self.sorting, ArticlesListSorting::Newest, RichText::new("Новые").size(16.));
+                                        //     h_ui.radio_value(&mut self.sorting, ArticlesListSorting::Best, RichText::new("Лучшие").size(16.));
+                                        // });
+                                    },
+                                    ArticlesListSorting::Best => {
+                                        collapse_ui.label(RichText::new("Период").size(16.).strong());
+                                        collapse_ui.horizontal(|h_ui| {
+                                            h_ui.selectable_value(&mut self.date_filter, DateFilter::Daily, RichText::new("Сутки").size(16.));
+                                            h_ui.selectable_value(&mut self.date_filter, DateFilter::Weekly, RichText::new("Неделя").size(16.));
+                                            h_ui.selectable_value(&mut self.date_filter, DateFilter::Monthly, RichText::new("Месяц").size(16.));
+                                            h_ui.selectable_value(&mut self.date_filter, DateFilter::Yearly, RichText::new("Год").size(16.));
+                                            h_ui.selectable_value(&mut self.date_filter, DateFilter::AllTime, RichText::new("Всё время").size(16.));
+                                        });
+                                    },
+                                }
+
+                                collapse_ui.label(RichText::new("Уровень сложности").size(16.).strong());
+                                collapse_ui.horizontal(|h_ui| {
+                                    h_ui.selectable_value(&mut self.complexity_filter, None, RichText::new("Все").size(16.));
+                                    h_ui.selectable_value(&mut self.complexity_filter, Some(ComplexityFilter::Easy), RichText::new("Простой").size(16.));
+                                    h_ui.selectable_value(&mut self.complexity_filter, Some(ComplexityFilter::Medium), RichText::new("Средний").size(16.));
+                                    h_ui.selectable_value(&mut self.complexity_filter, Some(ComplexityFilter::Hard), RichText::new("Сложный").size(16.));
+                                });
+
+                                collapse_ui.add_space(10.);
+                                if collapse_ui.button(RichText::new("Применить").size(20.)).clicked() {
+                                    self.get_articles();
+                                };
+                            });
+                        } else {
+                            ui.horizontal(|h_ui| {
+                                if h_ui.selectable_value(&mut self.search_sorting, ArticlesSearchSorting::Relevance, RichText::new("По релевантности").size(16.)).changed() ||
+                                    h_ui.selectable_value(&mut self.search_sorting, ArticlesSearchSorting::Date, RichText::new("По дате").size(16.)).changed() ||
+                                    h_ui.selectable_value(&mut self.search_sorting, ArticlesSearchSorting::Rating, RichText::new("По рейтингу").size(16.)).changed()
+                                    {
+                                        self.get_articles();
+                                    }
+                            });
+                        }
                     });
 
                     f_ui.add_ui(egui_flex::item(), |ui| ui.separator());
@@ -190,6 +333,7 @@ impl ArticleListItem {
             .inner_margin(10.);
 
         ui.scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
+            ui.set_max_width(ui.available_width());
             frame.show(ui, |ui| {
                 ui.with_layout(Layout::top_down_justified(egui::Align::TOP), |ui| {
                     ui.set_width(ui.available_width());
@@ -219,6 +363,25 @@ impl ArticleListItem {
                         });
                     }
 
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label("|");
+                        for tag in article.tags.iter() {
+                            // let mut tag_frame = Frame::new()
+                            //     .corner_radius(10.)
+                            //     .fill(Color32::LIGHT_RED)
+                            //     .inner_margin(egui::Margin::symmetric(10, 5))
+                            //     .begin(ui);
+                            // let frame_content = tag_frame.content_ui.add(Label::new(tag).extend().selectable(false));
+                            // ui.allocate_exact_size((frame_content.rect.width(), frame_content.rect.height()).into(), Sense::empty());
+
+                            // tag_frame.end(ui);
+                            Label::new(RichText::new(tag).size(14.))
+                                .selectable(false)
+                                .ui(ui);
+                            ui.label("|");
+                        }
+                    });
+
                     ui.spacing_mut().item_spacing = egui::Vec2::new(10., 5.);
                     Grid::new(&article.id).num_columns(2).show(ui, |ui| {
                         if let Some((label, color)) = match article.complexity.as_str() {
@@ -245,23 +408,15 @@ impl ArticleListItem {
                             .ui(ui);
                     });
 
-                    // ui.horizontal_wrapped(|ui| {
-                    //     for tag in article.tags.iter() {
-                    //         let mut tag_frame = Frame::new()
-                    //             .corner_radius(15.)
-                    //             .fill(Color32::LIGHT_RED)
-                    //             .inner_margin(egui::Margin::symmetric(10, 5))
-                    //             .begin(ui);
-                    //         let frame_content = tag_frame.content_ui.add(Label::new(tag).extend().selectable(false));
-                    //         ui.allocate_space((frame_content.rect.width(), frame_content.rect.height()).into());
-
-                    //         tag_frame.end(ui);
-                    //     }
-                    // });
-
                     ui.horizontal(|ui| {
                         Label::new(RichText::new(article.title.as_str()).size(20.).strong())
                             .wrap()
+                            .selectable(false)
+                            .ui(ui);
+                    });
+
+                    ui.horizontal(|ui| {
+                        Label::new(RichText::new(format!("Рейтинг: {}", article.score)).size(14.).strong())
                             .selectable(false)
                             .ui(ui);
                     })

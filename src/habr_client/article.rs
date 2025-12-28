@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
-use super::TypedText;
+use super::html_parse::TypedText;
 
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -24,6 +24,17 @@ pub struct Tag {
 pub struct Author {
     pub(crate) id: String,
     pub(crate) alias: String,
+    #[serde(alias = "avatarUrl")]
+    pub(crate) avatar_url: Option<String>,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Statistics {
+    #[serde(alias = "commentsCount")]
+    pub comments_count: usize,
+    #[serde(alias = "readingCount")]
+    pub reading_count: usize,
+    pub score: isize
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -40,6 +51,7 @@ pub struct ArticlePreviewResponse {
     #[serde(alias = "readingTime")]
     pub(crate) reading_time: usize,
     pub(crate) author: Option<Author>,
+    pub(crate) statistics: Statistics,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
@@ -60,7 +72,6 @@ pub(crate) struct ArticleResponse {
     pub text: String,
 }
 
-
 #[derive(Clone, Debug)]
 pub struct ArticleData {
     pub(crate) id: String,
@@ -72,6 +83,7 @@ pub struct ArticleData {
     pub(crate) published_at: String,
     pub(crate) reading_time: usize,
     pub image_url: String,
+    pub score: isize,
 }
 
 #[derive(Clone, Debug)]
@@ -88,4 +100,78 @@ pub enum ArticleContent {
     UnorderedList(Vec<ArticleContent>),
     OrderedList(Vec<ArticleContent>),
     BR,
+}
+
+type RatingFilter = Option<usize>;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ArticlesListSorting {
+    Newest,
+    Best,
+}
+
+impl Default for ArticlesListSorting {
+    fn default() -> Self {
+        ArticlesListSorting::Newest
+    }
+}
+
+impl ArticlesListSorting {
+    pub fn to_string(&self) -> String {
+        match self {
+            ArticlesListSorting::Best => "date".to_string(),
+            ArticlesListSorting::Newest => "rating".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ArticlesListFilter {
+    ByRating(RatingFilter),
+    ByDate(DateFilter)
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DateFilter {
+    Daily,
+    Weekly,
+    Monthly,
+    Yearly,
+    AllTime,
+}
+
+impl DateFilter {
+    pub fn to_string(&self) -> String {
+        match self {
+            DateFilter::Daily => "daily".to_string(),
+            DateFilter::Weekly => "weekly".to_string(),
+            DateFilter::Monthly => "monthly".to_string(),
+            DateFilter::Yearly => "yearly".to_string(),
+            DateFilter::AllTime => "alltime".to_string(),
+        }
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ComplexityFilter {
+    Easy,
+    Medium,
+    Hard,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum ArticlesSearchSorting {
+    Relevance,
+    Date,
+    Rating,
+}
+
+impl ArticlesSearchSorting {
+    pub fn to_string(&self) -> String {
+        match self {
+            ArticlesSearchSorting::Relevance => "relevance".to_string(),
+            ArticlesSearchSorting::Date => "date".to_string(),
+            ArticlesSearchSorting::Rating => "rating".to_string(),
+        }
+    }
 }
