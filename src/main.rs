@@ -4,28 +4,26 @@ use std::rc::Rc;
 use eframe::egui::{self, Color32};
 use eframe::epaint::text::{FontInsert, InsertFontFamily};
 
-mod habr_client;
-mod widgets;
-mod views;
-mod view_stack;
 #[cfg(not(target_arch = "x86_64"))]
 mod aurora_services;
+mod habr_client;
+mod view_stack;
+mod views;
+mod widgets;
 
-use views::hubs_list::HubsList;
-use views::articles_list::ArticlesList;
 use views::article_details::ArticleDetails;
+use views::articles_list::ArticlesList;
+use views::hubs_list::HubsList;
 use views::settings::Settings;
 
 use habr_client::article::ArticleData;
 use habr_client::hub::Hub;
 
-use view_stack::{ViewStack, UiView};
-
+use view_stack::{UiView, ViewStack};
 
 fn main() -> eframe::Result {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
-    let viewport = egui::ViewportBuilder::default()
-        .with_transparent(true);
+    let viewport = egui::ViewportBuilder::default().with_transparent(true);
     let options = eframe::NativeOptions {
         viewport: viewport,
         renderer: eframe::Renderer::Glow,
@@ -67,15 +65,13 @@ impl Default for MyApp {
             move |_selected_hub, view_stack| {
                 articles_list.borrow_mut().get_articles();
                 view_stack.push(articles_list.clone());
-        }});
+            }
+        });
 
         hubs_list.borrow_mut().get_hubs();
         view_stack.push(hubs_list.clone());
 
-        Self {
-            state,
-            view_stack,
-        }
+        Self { state, view_stack }
     }
 }
 
@@ -90,11 +86,19 @@ impl eframe::App for MyApp {
 
         let mut central_panel = egui::CentralPanel::default();
 
-        if self.state.borrow().settings.borrow().use_system_background() {
+        if self
+            .state
+            .borrow()
+            .settings
+            .borrow()
+            .use_system_background()
+        {
             let frame = egui::Frame::default().fill(Color32::TRANSPARENT);
             top_panel = top_panel.frame(frame);
 
-            let frame = egui::Frame::default().inner_margin(10.).fill(Color32::TRANSPARENT);
+            let frame = egui::Frame::default()
+                .inner_margin(10.)
+                .fill(Color32::TRANSPARENT);
             central_panel = central_panel.frame(frame);
         }
 
@@ -112,9 +116,7 @@ impl eframe::App for MyApp {
 fn add_font(ctx: &egui::Context) {
     ctx.add_font(FontInsert::new(
         "my_font",
-        egui::FontData::from_static(include_bytes!(
-            "../assets/fonts/Roboto-Regular.ttf"
-        )),
+        egui::FontData::from_static(include_bytes!("../assets/fonts/Roboto-Regular.ttf")),
         vec![
             InsertFontFamily {
                 family: egui::FontFamily::Proportional,
@@ -150,7 +152,9 @@ impl HabreState {
             selected_hub: None,
             selected_article: None,
 
-            settings: Rc::new(RefCell::new(Settings::read_from_file().unwrap_or_else(Default::default))),
+            settings: Rc::new(RefCell::new(
+                Settings::read_from_file().unwrap_or_else(Default::default),
+            )),
         }
     }
 
