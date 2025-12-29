@@ -4,7 +4,7 @@ version = "0.7.0"
 edition = "2024"
 
 [dependencies]
-eframe = { version = "0.33", features = ["wgpu"]}
+eframe = { version = "0.33" }
 egui_extras = { version = "0.33", default-features = false, features = [
     "image",
     "http",
@@ -34,7 +34,7 @@ tokio = { version = "1.48", default-features = false, features = [
     "rt-multi-thread",
     "time",
 ] }
-scraper = "0.24"
+scraper = "0.25"
 chrono = "0.4"
 toml = "0.9"
 log = "0.4"
@@ -60,4 +60,4 @@ assets = [
 
 [patch.crates-io]
 winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
-# glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }
+glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }
