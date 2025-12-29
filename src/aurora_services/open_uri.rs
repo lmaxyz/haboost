@@ -20,7 +20,7 @@ pub fn open_uri(uri: &str) -> Result<(), Box<dyn std::error::Error>> {
         ("OpenURI", hints, data),
     ) {
         Ok(res) => {
-            let _: (String,) = res;
+            let _: (Vec<u8>,) = res;
         }
         Err(e) => {
             log::error!("Error with URI opening: {}", e)
