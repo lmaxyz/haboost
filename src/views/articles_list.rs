@@ -482,21 +482,28 @@ impl ArticleListItem {
                     }
 
                     ui.horizontal_wrapped(|ui| {
-                        ui.label("|");
-                        for tag in article.tags.iter() {
+                        for (i, tag) in article.tags.iter().enumerate() {
                             // let mut tag_frame = Frame::new()
                             //     .corner_radius(10.)
                             //     .fill(Color32::LIGHT_RED)
                             //     .inner_margin(egui::Margin::symmetric(10, 5))
                             //     .begin(ui);
-                            // let frame_content = tag_frame.content_ui.add(Label::new(tag).extend().selectable(false));
-                            // ui.allocate_exact_size((frame_content.rect.width(), frame_content.rect.height()).into(), Sense::empty());
+                            // let frame_content = tag_frame
+                            //     .content_ui
+                            //     .add(Label::new(tag).extend().selectable(false));
+                            // ui.allocate_exact_size(
+                            //     (frame_content.rect.width(), frame_content.rect.height()).into(),
+                            //     Sense::empty(),
+                            // );
 
                             // tag_frame.end(ui);
+
+                            if i > 0 {
+                                ui.label("|");
+                            }
                             Label::new(RichText::new(tag).size(14.))
                                 .selectable(false)
                                 .ui(ui);
-                            ui.label("|");
                         }
                     });
 
@@ -528,10 +535,14 @@ impl ArticleListItem {
                     });
 
                     ui.horizontal(|ui| {
+                        Label::new(RichText::new(format!("★ {}", article.score)).size(18.))
+                            .selectable(false)
+                            .ui(ui);
+
+                        ui.label("|");
+
                         Label::new(
-                            RichText::new(format!("Рейтинг: {}", article.score))
-                                .size(14.)
-                                .strong(),
+                            RichText::new(format!("💬 {}", article.comments_count)).size(18.),
                         )
                         .selectable(false)
                         .ui(ui);

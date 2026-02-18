@@ -245,9 +245,6 @@ impl UiView for ArticleDetails {
                             }
                         }
                     }
-                    ui.add_space(20.);
-                    ui.separator();
-                    ui.add_space(10.);
 
                     let comments_count = self
                         .habre_state
@@ -256,18 +253,23 @@ impl UiView for ArticleDetails {
                         .as_ref()
                         .map_or(0, |a| a.comments_count);
                     if comments_count > 0 {
+                        ui.add_space(10.);
+                        ui.separator();
+                        ui.add_space(10.);
+
                         let comments_button = egui::Button::new(
-                            RichText::new(format!("Комментарии ({})", comments_count)).size(18.),
+                            RichText::new(format!("Комментарии ({})", comments_count)).size(20.),
                         )
-                        .fill(Color32::from_gray(50))
                         .corner_radius(5.);
 
-                        if ui.add(comments_button).clicked() {
-                            let comments =
-                                Rc::new(RefCell::new(Comments::new(self.habre_state.clone())));
-                            comments.borrow_mut().load_comments();
-                            view_stack.push(comments);
-                        }
+                        ui.centered_and_justified(|ui| {
+                            if ui.add(comments_button).clicked() {
+                                let comments =
+                                    Rc::new(RefCell::new(Comments::new(self.habre_state.clone())));
+                                comments.borrow_mut().load_comments();
+                                view_stack.push(comments);
+                            }
+                        });
                     }
                 });
 
