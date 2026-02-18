@@ -46,6 +46,12 @@ pub struct ArticlesList {
 
     current_page: u8,
     max_page: Arc<AtomicU8>,
+
+    show_filter_popup: bool,
+    temp_sorting: ArticlesListSorting,
+    temp_date_filter: DateFilter,
+    temp_complexity_filter: Option<ComplexityFilter>,
+    temp_search_sorting: ArticlesSearchSorting,
 }
 
 impl ArticlesList {
@@ -71,7 +77,12 @@ impl ArticlesList {
             search_text: String::new(),
             search_was_changed: false,
             search_sorting: ArticlesSearchSorting::Relevance,
-            // search_sort:
+
+            show_filter_popup: false,
+            temp_sorting: ArticlesListSorting::default(),
+            temp_date_filter: DateFilter::Daily,
+            temp_complexity_filter: None,
+            temp_search_sorting: ArticlesSearchSorting::Relevance,
         }
     }
 
@@ -175,10 +186,255 @@ impl ArticlesList {
             self.search_was_changed = true;
         }
     }
+
+    fn search_with_filter_button_ui(&mut self, ui: &mut Ui) {
+        egui_flex::Flex::horizontal()
+            .align_items(egui_flex::FlexAlign::Center)
+            .gap(egui::Vec2::new(10., 0.))
+            .w_full()
+            .show(ui, |flex_ui| {
+                flex_ui.add_ui(egui_flex::item().shrink().grow(1.), |ui| {
+                    self.search_ui(ui);
+                });
+
+                flex_ui.add_ui(egui_flex::item().grow(2.), |ui| {
+                    let has_active_filters = self.has_active_filters();
+                    let button_text = RichText::new("🔧").size(28.);
+                    let button = egui::Button::new(button_text).corner_radius(8.);
+
+                    let button = if has_active_filters {
+                        button.fill(ui.visuals().selection.bg_fill)
+                    } else {
+                        button
+                    };
+
+                    if ui.add(button).clicked() {
+                        self.temp_sorting = self.sorting;
+                        self.temp_date_filter = self.date_filter;
+                        self.temp_complexity_filter = self.complexity_filter;
+                        self.temp_search_sorting = self.search_sorting;
+                        self.show_filter_popup = true;
+                    }
+                });
+            });
+    }
+
+    fn has_active_filters(&self) -> bool {
+        if !self.search_text.is_empty() {
+            self.search_sorting != ArticlesSearchSorting::Relevance
+        } else {
+            self.sorting != ArticlesListSorting::default()
+                || self.complexity_filter.is_some()
+                || (self.sorting == ArticlesListSorting::Best
+                    && self.date_filter != DateFilter::Daily)
+        }
+    }
+
+    fn filter_popup_ui(&mut self, _ui: &mut Ui, ctx: &Context) {
+        if !self.show_filter_popup {
+            return;
+        }
+
+        let screen_rect = ctx.content_rect();
+        let popup_width = screen_rect.width().min(300.0);
+        let popup_height = screen_rect.height().min(500.0);
+
+        let popup_rect = egui::Rect::from_center_size(
+            screen_rect.center(),
+            egui::Vec2::new(popup_width, popup_height),
+        );
+
+        let should_close = Rc::new(RefCell::new(false));
+        let should_close_clone = should_close.clone();
+        let should_apply = Rc::new(RefCell::new(false));
+        let should_apply_clone = should_apply.clone();
+        let should_reset = Rc::new(RefCell::new(false));
+        let should_reset_clone = should_reset.clone();
+
+        if egui::Area::new(egui::Id::new("filter_popup_overlay"))
+            .fixed_pos(screen_rect.min)
+            .interactable(true)
+            .show(ctx, |ui| {
+                let (resp, painter) = ui.allocate_painter(screen_rect.size(), Sense::click());
+                painter.add(egui::Shape::rect_filled(
+                    screen_rect,
+                    egui::CornerRadius::ZERO,
+                    egui::Color32::from_black_alpha(150),
+                ));
+                resp
+            })
+            .inner
+            .clicked()
+        {
+            *should_close_clone.borrow_mut() = true;
+        }
+
+        egui::Window::new("Сортировка и фильтрация")
+            .default_rect(popup_rect)
+            .collapsible(false)
+            .resizable(false)
+            .movable(false)
+            .title_bar(true)
+            .order(egui::Order::Foreground)
+            .show(ctx, |ui| {
+                if !self.search_text.is_empty() {
+                    ui.label(RichText::new("Сортировка поиска").size(16.).strong());
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(
+                            &mut self.temp_search_sorting,
+                            ArticlesSearchSorting::Relevance,
+                            RichText::new("По релевантности").size(16.),
+                        );
+                        ui.selectable_value(
+                            &mut self.temp_search_sorting,
+                            ArticlesSearchSorting::Date,
+                            RichText::new("По дате").size(16.),
+                        );
+                        ui.selectable_value(
+                            &mut self.temp_search_sorting,
+                            ArticlesSearchSorting::Rating,
+                            RichText::new("По рейтингу").size(16.),
+                        );
+                    });
+                } else {
+                    ui.label(RichText::new("Сначала показывать").size(16.).strong());
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(
+                            &mut self.temp_sorting,
+                            ArticlesListSorting::Newest,
+                            RichText::new("Новые").size(16.),
+                        );
+                        ui.selectable_value(
+                            &mut self.temp_sorting,
+                            ArticlesListSorting::Best,
+                            RichText::new("Лучшие").size(16.),
+                        );
+                    });
+
+                    match self.temp_sorting {
+                        ArticlesListSorting::Best => {
+                            ui.add_space(10.);
+                            ui.label(RichText::new("Период").size(16.).strong());
+                            ui.horizontal(|ui| {
+                                ui.selectable_value(
+                                    &mut self.temp_date_filter,
+                                    DateFilter::Daily,
+                                    RichText::new("Сутки").size(16.),
+                                );
+                                ui.selectable_value(
+                                    &mut self.temp_date_filter,
+                                    DateFilter::Weekly,
+                                    RichText::new("Неделя").size(16.),
+                                );
+                                ui.selectable_value(
+                                    &mut self.temp_date_filter,
+                                    DateFilter::Monthly,
+                                    RichText::new("Месяц").size(16.),
+                                );
+                                ui.selectable_value(
+                                    &mut self.temp_date_filter,
+                                    DateFilter::Yearly,
+                                    RichText::new("Год").size(16.),
+                                );
+                                ui.selectable_value(
+                                    &mut self.temp_date_filter,
+                                    DateFilter::AllTime,
+                                    RichText::new("Всё время").size(16.),
+                                );
+                            });
+                        }
+                        _ => {}
+                    }
+
+                    ui.add_space(10.);
+                    ui.label(RichText::new("Уровень сложности").size(16.).strong());
+                    ui.horizontal(|ui| {
+                        ui.selectable_value(
+                            &mut self.temp_complexity_filter,
+                            None,
+                            RichText::new("Все").size(16.),
+                        );
+                        ui.selectable_value(
+                            &mut self.temp_complexity_filter,
+                            Some(ComplexityFilter::Easy),
+                            RichText::new("Простой").size(16.),
+                        );
+                        ui.selectable_value(
+                            &mut self.temp_complexity_filter,
+                            Some(ComplexityFilter::Medium),
+                            RichText::new("Средний").size(16.),
+                        );
+                        ui.selectable_value(
+                            &mut self.temp_complexity_filter,
+                            Some(ComplexityFilter::Hard),
+                            RichText::new("Сложный").size(16.),
+                        );
+                    });
+                }
+
+                ui.add_space(20.);
+                ui.separator();
+                ui.add_space(10.);
+
+                ui.horizontal(|ui| {
+                    if ui.button(RichText::new("Отмена").size(18.)).clicked() {
+                        *should_close_clone.borrow_mut() = true;
+                    }
+                    ui.add_space(10.);
+                    if ui.button(RichText::new("Сбросить").size(18.)).clicked() {
+                        *should_reset_clone.borrow_mut() = true;
+                        *should_close_clone.borrow_mut() = true;
+                    }
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        if ui
+                            .button(RichText::new("Применить").size(18.).strong())
+                            .clicked()
+                        {
+                            *should_apply_clone.borrow_mut() = true;
+                            *should_close_clone.borrow_mut() = true;
+                        }
+                    });
+                });
+            });
+
+        if *should_apply.borrow() {
+            if !self.search_text.is_empty() {
+                self.search_sorting = self.temp_search_sorting;
+            } else {
+                self.sorting = self.temp_sorting;
+                self.date_filter = self.temp_date_filter;
+                self.complexity_filter = self.temp_complexity_filter;
+            }
+            self.current_page = 1;
+            self.get_articles();
+        }
+
+        if *should_reset.borrow() {
+            if !self.search_text.is_empty() {
+                self.search_sorting = ArticlesSearchSorting::Relevance;
+                self.temp_search_sorting = ArticlesSearchSorting::Relevance;
+            } else {
+                self.sorting = ArticlesListSorting::default();
+                self.date_filter = DateFilter::Daily;
+                self.complexity_filter = None;
+                self.temp_sorting = ArticlesListSorting::default();
+                self.temp_date_filter = DateFilter::Daily;
+                self.temp_complexity_filter = None;
+            }
+            self.current_page = 1;
+            self.get_articles();
+        }
+
+        if *should_close.borrow() {
+            self.show_filter_popup = false;
+        }
+    }
 }
 
 impl UiView for ArticlesList {
     fn ui(&mut self, ui: &mut Ui, ctx: &Context, view_stack: &mut crate::view_stack::ViewStack) {
+        self.filter_popup_ui(ui, ctx);
+
         Flex::vertical()
             .justify(egui_flex::FlexJustify::SpaceBetween)
             .grow_items(0.)
@@ -202,142 +458,9 @@ impl UiView for ArticlesList {
                             ui.add(Label::new(article_list_title))
                         });
 
-                        f_ui.add_ui(egui_flex::item(), |ui| self.search_ui(ui));
-
-                        f_ui.add_ui(
-                            egui_flex::item().align_self_content(egui::Align2::RIGHT_BOTTOM),
-                            |ui| {
-                                if self.search_text.is_empty() {
-                                    ui.collapsing(
-                                        RichText::new("Сортировка и фильтрация").size(18.),
-                                        |collapse_ui| {
-                                            collapse_ui.label(
-                                                RichText::new("Сначала показывать")
-                                                    .size(16.)
-                                                    .strong(),
-                                            );
-                                            collapse_ui.horizontal(|h_ui| {
-                                                h_ui.selectable_value(
-                                                    &mut self.sorting,
-                                                    ArticlesListSorting::Newest,
-                                                    RichText::new("Новые").size(16.),
-                                                );
-                                                h_ui.selectable_value(
-                                                    &mut self.sorting,
-                                                    ArticlesListSorting::Best,
-                                                    RichText::new("Лучшие").size(16.),
-                                                );
-                                            });
-
-                                            match self.sorting {
-                                                ArticlesListSorting::Newest => {
-                                                    // collapse_ui.label(RichText::new("Порог рейтинга").size(16.).strong());
-                                                    // collapse_ui.horizontal(|h_ui| {
-                                                    //     h_ui.radio_value(&mut self.sorting, ArticlesListSorting::Newest, RichText::new("Новые").size(16.));
-                                                    //     h_ui.radio_value(&mut self.sorting, ArticlesListSorting::Best, RichText::new("Лучшие").size(16.));
-                                                    // });
-                                                }
-                                                ArticlesListSorting::Best => {
-                                                    collapse_ui.label(
-                                                        RichText::new("Период").size(16.).strong(),
-                                                    );
-                                                    collapse_ui.horizontal(|h_ui| {
-                                                        h_ui.selectable_value(
-                                                            &mut self.date_filter,
-                                                            DateFilter::Daily,
-                                                            RichText::new("Сутки").size(16.),
-                                                        );
-                                                        h_ui.selectable_value(
-                                                            &mut self.date_filter,
-                                                            DateFilter::Weekly,
-                                                            RichText::new("Неделя").size(16.),
-                                                        );
-                                                        h_ui.selectable_value(
-                                                            &mut self.date_filter,
-                                                            DateFilter::Monthly,
-                                                            RichText::new("Месяц").size(16.),
-                                                        );
-                                                        h_ui.selectable_value(
-                                                            &mut self.date_filter,
-                                                            DateFilter::Yearly,
-                                                            RichText::new("Год").size(16.),
-                                                        );
-                                                        h_ui.selectable_value(
-                                                            &mut self.date_filter,
-                                                            DateFilter::AllTime,
-                                                            RichText::new("Всё время").size(16.),
-                                                        );
-                                                    });
-                                                }
-                                            }
-
-                                            collapse_ui.label(
-                                                RichText::new("Уровень сложности")
-                                                    .size(16.)
-                                                    .strong(),
-                                            );
-                                            collapse_ui.horizontal(|h_ui| {
-                                                h_ui.selectable_value(
-                                                    &mut self.complexity_filter,
-                                                    None,
-                                                    RichText::new("Все").size(16.),
-                                                );
-                                                h_ui.selectable_value(
-                                                    &mut self.complexity_filter,
-                                                    Some(ComplexityFilter::Easy),
-                                                    RichText::new("Простой").size(16.),
-                                                );
-                                                h_ui.selectable_value(
-                                                    &mut self.complexity_filter,
-                                                    Some(ComplexityFilter::Medium),
-                                                    RichText::new("Средний").size(16.),
-                                                );
-                                                h_ui.selectable_value(
-                                                    &mut self.complexity_filter,
-                                                    Some(ComplexityFilter::Hard),
-                                                    RichText::new("Сложный").size(16.),
-                                                );
-                                            });
-
-                                            collapse_ui.add_space(10.);
-                                            if collapse_ui
-                                                .button(RichText::new("Применить").size(20.))
-                                                .clicked()
-                                            {
-                                                self.get_articles();
-                                            };
-                                        },
-                                    );
-                                } else {
-                                    ui.horizontal(|h_ui| {
-                                        if h_ui
-                                            .selectable_value(
-                                                &mut self.search_sorting,
-                                                ArticlesSearchSorting::Relevance,
-                                                RichText::new("По релевантности").size(16.),
-                                            )
-                                            .changed()
-                                            || h_ui
-                                                .selectable_value(
-                                                    &mut self.search_sorting,
-                                                    ArticlesSearchSorting::Date,
-                                                    RichText::new("По дате").size(16.),
-                                                )
-                                                .changed()
-                                            || h_ui
-                                                .selectable_value(
-                                                    &mut self.search_sorting,
-                                                    ArticlesSearchSorting::Rating,
-                                                    RichText::new("По рейтингу").size(16.),
-                                                )
-                                                .changed()
-                                        {
-                                            self.get_articles();
-                                        }
-                                    });
-                                }
-                            },
-                        );
+                        f_ui.add_ui(egui_flex::item(), |ui| {
+                            self.search_with_filter_button_ui(ui)
+                        });
 
                         f_ui.add_ui(egui_flex::item(), |ui| ui.separator());
                     },
