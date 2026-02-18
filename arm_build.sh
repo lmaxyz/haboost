@@ -16,6 +16,15 @@ PKG_VERSION="$(cargo pkgid | cut -d '#' -f 2)"
 
 mkdir -p RPMS/
 
+# Uncomment winit patch for Aurora build
+sed -i 's/^# winit =/winit =/' Cargo.toml
+
+# Build and ensure patch is restored even on failure
+cleanup() {
+    sed -i 's/^winit =/# winit =/' Cargo.toml
+}
+trap cleanup EXIT
+
 cross build --release --target $TARGET
 cargo generate-rpm -a armv7hl --target $TARGET -o RPMS/
 
