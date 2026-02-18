@@ -1,13 +1,20 @@
+use std::collections::HashMap;
 use std::str::FromStr;
 
 use chrono::{DateTime, Local};
-use reqwest::{header, Client, Error, Method, RequestBuilder};
+use reqwest::{Client, Error, Method, RequestBuilder, header};
 
 pub mod article;
-pub mod hub;
+pub mod comment;
 pub mod html_parse;
+pub mod hub;
 
-use article::{ArticleContent, ArticleData, ArticleResponse, ArticlesResponse, ArticlesListSorting, ArticlesListFilter, ArticlesSearchSorting};
+use article::{
+    ArticleContent, ArticleData, ArticleResponse, ArticlesListFilter, ArticlesListSorting,
+    ArticlesResponse, ArticlesSearchSorting,
+};
+use comment::{Comment, CommentsResponse};
+
 use html_parse::{extract_content_from_html, extract_text_from_html};
 
 type PagesCount = usize;
@@ -59,8 +66,7 @@ impl HabrClient {
         search_query: &str,
         sort: ArticlesSearchSorting,
         page: u8,
-    ) -> Result<(Vec<ArticleData>, PagesCount), Error>
-    {
+    ) -> Result<(Vec<ArticleData>, PagesCount), Error> {
         let resp = self
             .setup_request(Method::GET, "https://habr.com/kek/v2/articles/")
             .query(&[
@@ -74,8 +80,8 @@ impl HabrClient {
 
         let response_bytes = resp.bytes().await.unwrap();
         // println!("{}", String::from_utf8_lossy(&response_bytes));
-        let resp_parsed: ArticlesResponse = serde_json::from_slice(&response_bytes)
-            .expect("[!] Error with response parsing");
+        let resp_parsed: ArticlesResponse =
+            serde_json::from_slice(&response_bytes).expect("[!] Error with response parsing");
 
         let mut articles: Vec<ArticleData> = resp_parsed
             .articles
@@ -93,6 +99,7 @@ impl HabrClient {
                     complexity: a.complexity.unwrap_or(String::new()),
                     image_url: a.lead_data.image_url.unwrap_or("".to_string()),
                     score: a.statistics.score,
+                    comments_count: a.statistics.comments_count,
                 }
             })
             .collect();
@@ -100,7 +107,7 @@ impl HabrClient {
         match sort {
             ArticlesSearchSorting::Rating => {
                 articles.sort_by(|a, b| a.score.cmp(&b.score));
-            },
+            }
             _ => {}
         }
 
@@ -116,24 +123,33 @@ impl HabrClient {
     ) -> Result<(Vec<ArticleData>, PagesCount), Error> {
         let filter_params: (&str, String) = match filter {
             ArticlesListFilter::ByDate(date) => ("period", date.to_string()),
-            ArticlesListFilter::ByRating(rating) => ("score", rating.map_or(String::new(), |s| s.to_string()))
+            ArticlesListFilter::ByRating(rating) => {
+                ("score", rating.map_or(String::new(), |s| s.to_string()))
+            }
         };
         let resp = self
             .setup_request(Method::GET, "https://habr.com/kek/v2/articles/")
             .query(&[
                 ("page", page.to_string()),
                 ("hub", hub.to_string()),
-                ("sort", if hub.is_empty() {sorting.to_string()} else {String::from("all")}),
+                (
+                    "sort",
+                    if hub.is_empty() {
+                        sorting.to_string()
+                    } else {
+                        String::from("all")
+                    },
+                ),
                 ("perPage", String::from("20")),
-                filter_params
+                filter_params,
             ])
             .send()
             .await?;
 
         let response_bytes = resp.bytes().await.unwrap();
         // println!("{}", String::from_utf8_lossy(&response_bytes));
-        let resp_parsed: ArticlesResponse = serde_json::from_slice(&response_bytes)
-            .expect("[!] Error with response parsing");
+        let resp_parsed: ArticlesResponse =
+            serde_json::from_slice(&response_bytes).expect("[!] Error with response parsing");
 
         let mut articles: Vec<ArticleData> = resp_parsed
             .articles
@@ -151,6 +167,7 @@ impl HabrClient {
                     complexity: a.complexity.unwrap_or(String::new()),
                     image_url: a.lead_data.image_url.unwrap_or("".to_string()),
                     score: a.statistics.score,
+                    comments_count: a.statistics.comments_count,
                 }
             })
             .collect();
@@ -158,10 +175,50 @@ impl HabrClient {
         match sorting {
             ArticlesListSorting::Best => {
                 articles.sort_by(|a, b| b.score.cmp(&a.score));
-            },
+            }
             _ => {}
         }
 
         Ok((articles, resp_parsed.pages_count))
     }
+
+    pub async fn get_comments(&self, article_id: &str) -> Result<Vec<Comment>, Error> {
+        let url = format!(
+            "https://habr.com/kek/v2/articles/{}/comments/split/guest",
+            article_id
+        );
+        let resp = self.setup_request(Method::GET, url.as_str()).send().await?;
+
+        let response_bytes = resp.bytes().await.unwrap();
+        let resp_parsed: CommentsResponse = serde_json::from_slice(&response_bytes)
+            .expect("[!] Error with comments response parsing");
+
+        let comment_refs = resp_parsed.comment_refs;
+        let threads = resp_parsed.threads;
+
+        let mut result: Vec<Comment> = Vec::new();
+
+        for thread_id in threads {
+            if let Some(root_comment) = comment_refs.get(&thread_id) {
+                let mut comment = root_comment.clone();
+                comment.children = resolve_children(&comment.children_ids, &comment_refs);
+                result.push(comment);
+            }
+        }
+
+        Ok(result)
+    }
+}
+
+fn resolve_children(child_ids: &[String], comment_refs: &HashMap<String, Comment>) -> Vec<Comment> {
+    child_ids
+        .iter()
+        .filter_map(|id| {
+            comment_refs.get(id).map(|c| {
+                let mut comment = c.clone();
+                comment.children = resolve_children(&c.children_ids, comment_refs);
+                comment
+            })
+        })
+        .collect()
 }
