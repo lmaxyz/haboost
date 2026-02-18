@@ -253,16 +253,16 @@ impl UiView for ArticleDetails {
                         .as_ref()
                         .map_or(0, |a| a.comments_count);
                     if comments_count > 0 {
-                        ui.add_space(10.);
+                        ui.add_space(5.);
                         ui.separator();
-                        ui.add_space(10.);
-
-                        let comments_button = egui::Button::new(
-                            RichText::new(format!("Комментарии ({})", comments_count)).size(20.),
-                        )
-                        .corner_radius(5.);
+                        ui.add_space(5.);
 
                         ui.centered_and_justified(|ui| {
+                            let comments_button = egui::Button::new(
+                                RichText::new(format!("Комментарии ({})", comments_count))
+                                    .size(20.),
+                            )
+                            .corner_radius(5.);
                             if ui.add(comments_button).clicked() {
                                 let comments =
                                     Rc::new(RefCell::new(Comments::new(self.habre_state.clone())));
@@ -270,6 +270,8 @@ impl UiView for ArticleDetails {
                                 view_stack.push(comments);
                             }
                         });
+
+                        ui.add_space(5.);
                     }
                 });
 
