@@ -236,7 +236,7 @@ impl ArticlesList {
         }
 
         let screen_rect = ctx.content_rect();
-        let popup_width = screen_rect.width().min(400.0);
+        let popup_width = screen_rect.width().min(300.0);
         let popup_height = screen_rect.height().min(500.0);
 
         let popup_rect = egui::Rect::from_center_size(
@@ -251,22 +251,29 @@ impl ArticlesList {
         let should_reset = Rc::new(RefCell::new(false));
         let should_reset_clone = should_reset.clone();
 
-        egui::Area::new(egui::Id::new("filter_popup_overlay"))
+        if egui::Area::new(egui::Id::new("filter_popup_overlay"))
             .fixed_pos(screen_rect.min)
-            .order(egui::Order::Background)
             .interactable(true)
             .show(ctx, |ui| {
-                ui.painter().add(egui::Shape::rect_filled(
+                let (resp, painter) = ui.allocate_painter(screen_rect.size(), Sense::click());
+                painter.add(egui::Shape::rect_filled(
                     screen_rect,
                     egui::CornerRadius::ZERO,
                     egui::Color32::from_black_alpha(150),
                 ));
-            });
+                resp
+            })
+            .inner
+            .clicked()
+        {
+            *should_close_clone.borrow_mut() = true;
+        }
 
         egui::Window::new("Сортировка и фильтрация")
-            .fixed_rect(popup_rect)
+            .default_rect(popup_rect)
             .collapsible(false)
             .resizable(false)
+            .movable(false)
             .title_bar(true)
             .order(egui::Order::Foreground)
             .show(ctx, |ui| {
