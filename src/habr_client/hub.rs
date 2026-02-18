@@ -4,6 +4,41 @@ use reqwest::Error;
 use serde::{Deserialize, Serialize};
 use serde_json;
 
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parse_hub_response() {
+        let json = r#"{
+            "pagesCount": 1,
+            "hubIds": [],
+            "hubRefs": {
+                "ru_rust": {
+                    "id": "rust",
+                    "alias": "ru_rust",
+                    "titleHtml": "<h2>Rust</h2>",
+                    "descriptionHtml": "Rust programming language",
+                    "commonTags": ["programming"],
+                    "imageUrl": "https://habr.com/hub/rust.png",
+                    "statistics": {
+                        "subscribersCount": 50000,
+                        "rating": 100.2
+                    }
+                }
+            }
+        }"#;
+
+        let response: HubsResponse = serde_json::from_str(json).unwrap();
+
+        assert_eq!(response.pages_count, 1);
+
+        let hub = response.hub_refs.get("ru_rust").unwrap();
+        assert_eq!(hub.alias, "ru_rust");
+        assert_eq!(hub.statistics.subscribers_count, 50000);
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Hub {
     pub id: String,
@@ -16,16 +51,24 @@ pub struct Hub {
     pub common_tags: Vec<String>,
     #[serde(rename(deserialize = "imageUrl"))]
     pub image_url: String,
+    pub statistics: HubStatistics,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct HubStatistics {
+    #[serde(rename(deserialize = "subscribersCount"))]
+    pub subscribers_count: usize,
+    pub rating: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
-struct HubsResponse {
+pub struct HubsResponse {
     #[serde(rename(deserialize = "pagesCount"))]
-    pages_count: usize,
+    pub pages_count: usize,
     #[serde(rename(deserialize = "hubIds"))]
-    hub_ids: Vec<serde_json::Value>,
+    pub hub_ids: Vec<serde_json::Value>,
     #[serde(rename(deserialize = "hubRefs"))]
-    hub_refs: HashMap<String, Hub>,
+    pub hub_refs: HashMap<String, Hub>,
 }
 
 pub async fn get_hubs(page: u8, search_text: String) -> Result<(Vec<Hub>, usize), Error> {
@@ -54,7 +97,8 @@ pub async fn get_hubs(page: u8, search_text: String) -> Result<(Vec<Hub>, usize)
     let mut hubs: Vec<Hub> = resp_parsed.hub_refs.into_values().collect();
 
     hubs.sort_by(|f, s| f.title.cmp(&s.title));
-    hubs.iter_mut().for_each(|h| h.title = super::html_parse::extract_text_from_html(&h.title) );
+    hubs.iter_mut()
+        .for_each(|h| h.title = super::html_parse::extract_text_from_html(&h.title));
 
     Ok((hubs, resp_parsed.pages_count))
 }

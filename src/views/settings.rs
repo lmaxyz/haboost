@@ -1,7 +1,7 @@
 use eframe::egui;
 use egui_theme_switch::ThemeSwitch;
-use toml;
 use serde::{Deserialize, Serialize};
+use toml;
 
 use crate::view_stack::UiView;
 
@@ -19,7 +19,6 @@ pub struct Settings {
     saved_data: SettingsData,
     temp_theme: egui::ThemePreference,
 }
-
 
 impl Settings {
     pub fn scale_factor(&self) -> f32 {
@@ -53,10 +52,20 @@ impl Settings {
 
     pub fn read_from_file() -> Option<Self> {
         let home_dir = std::env::home_dir().unwrap();
-        if let Ok(readed_data) = std::fs::read_to_string(home_dir.join(".local/share/com.lmaxyz/Haboost/settings.toml")) {
+        if let Ok(readed_data) =
+            std::fs::read_to_string(home_dir.join(".local/share/com.lmaxyz/Haboost/settings.toml"))
+        {
             if let Ok(settings_data) = toml::from_str::<SettingsData>(&readed_data) {
-                let theme = if settings_data.dark_theme { egui::ThemePreference::Dark } else { egui::ThemePreference::Light };
-                Some(Settings {saved_data: settings_data, temp_data: settings_data, temp_theme: theme})
+                let theme = if settings_data.dark_theme {
+                    egui::ThemePreference::Dark
+                } else {
+                    egui::ThemePreference::Light
+                };
+                Some(Settings {
+                    saved_data: settings_data,
+                    temp_data: settings_data,
+                    temp_theme: theme,
+                })
             } else {
                 None
             }
@@ -67,7 +76,12 @@ impl Settings {
 }
 
 impl UiView for Settings {
-    fn ui(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context, _view_stack: &mut crate::view_stack::ViewStack) {
+    fn ui(
+        &mut self,
+        ui: &mut egui::Ui,
+        _ctx: &egui::Context,
+        _view_stack: &mut crate::view_stack::ViewStack,
+    ) {
         ui.vertical_centered_justified(|ui| ui.label(egui::RichText::new("Настройки").size(28.)));
         ui.separator();
 
@@ -76,18 +90,37 @@ impl UiView for Settings {
             self.temp_data.dark_theme = self.temp_theme == egui::ThemePreference::Dark;
         }
 
-        if ui.radio(self.temp_data.use_system_background, "Использовать системный фон").clicked() {
+        if ui
+            .radio(
+                self.temp_data.use_system_background,
+                "Использовать системный фон",
+            )
+            .clicked()
+        {
             self.temp_data.use_system_background = !self.temp_data.use_system_background
         }
 
-        ui.label(egui::RichText::new("Коэффициент масштабирования").size(self.saved_data.font_size));
-        ui.spacing_mut().slider_width = ui.available_width()/2.;
-        ui.add(egui::Slider::new(&mut self.temp_data.scale_factor, 1.0..=3.0).step_by(0.25).max_decimals(2));
+        ui.label(
+            egui::RichText::new("Коэффициент масштабирования").size(self.saved_data.font_size),
+        );
+        ui.spacing_mut().slider_width = ui.available_width() / 2.;
+        ui.add(
+            egui::Slider::new(&mut self.temp_data.scale_factor, 1.0..=3.0)
+                .step_by(0.25)
+                .max_decimals(2),
+        );
 
         ui.label(egui::RichText::new("Размер шрифта").size(self.saved_data.font_size));
-        ui.add(egui::Slider::new(&mut self.temp_data.font_size, 12.0..=36.0).step_by(1.0).max_decimals(0));
+        ui.add(
+            egui::Slider::new(&mut self.temp_data.font_size, 12.0..=36.0)
+                .step_by(1.0)
+                .max_decimals(0),
+        );
 
-        if ui.button(egui::RichText::new("Применить").size(self.saved_data.font_size)).clicked() {
+        if ui
+            .button(egui::RichText::new("Применить").size(self.saved_data.font_size))
+            .clicked()
+        {
             ui.ctx().set_theme(self.temp_theme);
             self.save_settings()
         }

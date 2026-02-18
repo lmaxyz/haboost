@@ -1,11 +1,11 @@
-use std::rc::Rc;
-use std::cell::RefCell;
 use eframe::egui;
 use eframe::egui::{Pos2, Rect, TouchPhase, Vec2};
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct ViewStack {
     backwarder: Backward,
-    views: Vec<Rc<RefCell<dyn UiView>>>
+    views: Vec<Rc<RefCell<dyn UiView>>>,
 }
 
 impl ViewStack {
@@ -43,11 +43,9 @@ impl ViewStack {
     }
 }
 
-
 pub trait UiView {
     fn ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, view_stack: &mut ViewStack);
 }
-
 
 struct Backward {
     start_threshold: f32,
@@ -59,7 +57,7 @@ struct Backward {
 }
 
 impl Backward {
-    pub fn ui(&mut self, ui:  &mut egui::Ui) {
+    pub fn ui(&mut self, ui: &mut egui::Ui) {
         let ready_to_activate = self.start_pos_offset.x >= self.activate_threshold;
         let size = 45.;
         let y_pos = ui.clip_rect().top() + 10.;
@@ -69,24 +67,51 @@ impl Backward {
             if ready_to_activate {
                 0.
             } else {
-                self.start_pos_offset.x / (self.activate_threshold/size) - size
+                self.start_pos_offset.x / (self.activate_threshold / size) - size
             }
         } else {
             -(size)
             // 0.
         };
         let rect = Rect::from_min_size((x_offset, y_pos).into(), (size, size).into());
-        let stroke = egui::Stroke::new(2., if ready_to_activate {ui.visuals().strong_text_color()} else {ui.visuals().weak_text_color()});
+        let stroke = egui::Stroke::new(
+            2.,
+            if ready_to_activate {
+                ui.visuals().strong_text_color()
+            } else {
+                ui.visuals().weak_text_color()
+            },
+        );
         let painter = ui.painter_at(rect);
-        painter.rect(rect, 6, ui.visuals().extreme_bg_color, stroke, egui::StrokeKind::Inside);
-        painter.arrow(Pos2::new(x_offset + ((size-arrow_length) / 2.0) + arrow_length, (size / 2.0) + y_pos), Vec2::new(-(arrow_length), 0.), stroke);
+        painter.rect(
+            rect,
+            6,
+            ui.visuals().extreme_bg_color,
+            stroke,
+            egui::StrokeKind::Inside,
+        );
+        painter.arrow(
+            Pos2::new(
+                x_offset + ((size - arrow_length) / 2.0) + arrow_length,
+                (size / 2.0) + y_pos,
+            ),
+            Vec2::new(-(arrow_length), 0.),
+            stroke,
+        );
     }
 
     pub fn check_input(&mut self, ui: &mut egui::Ui) {
         self.activated = false;
         ui.input_mut(|i| {
             i.events.retain(|e| {
-                if let egui::Event::Touch { device_id: _, id, phase, pos, force: _ } = e {
+                if let egui::Event::Touch {
+                    device_id: _,
+                    id,
+                    phase,
+                    pos,
+                    force: _,
+                } = e
+                {
                     match *phase {
                         TouchPhase::Start => {
                             // Set start touch coords
@@ -99,24 +124,25 @@ impl Backward {
                             } else {
                                 self.start_pos = *pos;
                             }
-                        },
+                        }
                         TouchPhase::Move => {
                             // Set move touch coords for transitions
                             if self.started() {
                                 // Drop touch events
-                                self.start_pos_offset.x =  pos.x - self.start_pos.x;
-                                self.start_pos_offset.y =  (pos.y - self.start_pos.y).abs();
-                                return false
+                                self.start_pos_offset.x = pos.x - self.start_pos.x;
+                                self.start_pos_offset.y = (pos.y - self.start_pos.y).abs();
+                                return false;
                             }
-                        },
+                        }
                         TouchPhase::Cancel => {
                             // Skip backwarding
                             self.start_pos = Pos2::new(-1., -1.);
                             self.start_pos_offset = Pos2::ZERO;
-                        },
+                        }
                         TouchPhase::End => {
                             // Backward if threshold achieved
-                            self.activated = pos.x - self.start_pos.x >= self.activate_threshold && self.started();
+                            self.activated = pos.x - self.start_pos.x >= self.activate_threshold
+                                && self.started();
                             self.start_pos = Pos2::new(-1., -1.);
                             self.start_pos_offset = Pos2::ZERO;
                             self.active_touches.retain(|active_id| active_id != id);
@@ -129,7 +155,9 @@ impl Backward {
     }
 
     pub fn started(&self) -> bool {
-        self.start_pos.x >= 0. && self.start_pos.x <= self.start_threshold && (self.start_pos_offset.y < 50. || self.start_pos_offset.x > self.start_threshold)
+        self.start_pos.x >= 0.
+            && self.start_pos.x <= self.start_threshold
+            && (self.start_pos_offset.y < 50. || self.start_pos_offset.x > self.start_threshold)
     }
 
     pub fn activated(&self) -> bool {
