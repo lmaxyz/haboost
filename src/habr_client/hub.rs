@@ -23,16 +23,16 @@ mod tests {
                     "imageUrl": "https://habr.com/hub/rust.png",
                     "statistics": {
                         "subscribersCount": 50000,
-                        "rating": 100
+                        "rating": 100.2
                     }
                 }
             }
         }"#;
 
         let response: HubsResponse = serde_json::from_str(json).unwrap();
-        
+
         assert_eq!(response.pages_count, 1);
-        
+
         let hub = response.hub_refs.get("ru_rust").unwrap();
         assert_eq!(hub.alias, "ru_rust");
         assert_eq!(hub.statistics.subscribers_count, 50000);
@@ -58,7 +58,7 @@ pub struct Hub {
 pub struct HubStatistics {
     #[serde(rename(deserialize = "subscribersCount"))]
     pub subscribers_count: usize,
-    pub rating: isize,
+    pub rating: f32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
