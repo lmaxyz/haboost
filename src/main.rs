@@ -13,6 +13,7 @@ mod widgets;
 
 use views::article_details::ArticleDetails;
 use views::articles_list::ArticlesList;
+use views::comments::Comments;
 use views::hubs_list::HubsList;
 use views::settings::Settings;
 
@@ -57,6 +58,16 @@ impl Default for MyApp {
             move |_article_data, view_stack| {
                 article_details.borrow_mut().load_data();
                 view_stack.push(article_details.clone());
+            }
+        });
+
+        articles_list.borrow_mut().on_comments_selected({
+            let state = state.clone();
+            move |article, view_stack| {
+                state.borrow_mut().selected_article = Some(article);
+                let comments = Rc::new(RefCell::new(Comments::new(state.clone())));
+                comments.borrow_mut().load_comments();
+                view_stack.push(comments);
             }
         });
 

@@ -6,8 +6,8 @@ use std::sync::{
 };
 
 use eframe::egui::{
-    self, Color32, Context, Frame, Grid, Image, Label, Layout, Response, RichText, ScrollArea,
-    Sense, Spinner, TextEdit, Ui, UiBuilder, Widget,
+    self, Button, Color32, Context, Frame, Grid, Image, Label, Layout, Response, RichText,
+    ScrollArea, Sense, Spinner, TextEdit, Ui, UiBuilder, Widget,
 };
 use egui_flex::Flex;
 // use egui_taffy::{taffy::{self, prelude::TaffyZero, AlignContent, Size, Style}, tui, TuiBuilderLogic};
@@ -28,6 +28,7 @@ use crate::{
 pub struct ArticlesList {
     pub is_loading: Arc<AtomicBool>,
     article_selected_cb: Option<Box<dyn FnMut(ArticleData, &mut ViewStack)>>,
+    comments_selected_cb: Option<Box<dyn FnMut(ArticleData, &mut ViewStack)>>,
 
     habre_state: Rc<RefCell<HabreState>>,
     reset_scroll: bool,
@@ -53,6 +54,7 @@ impl ArticlesList {
             habre_state,
             habr_client: HabrClient::new(),
             article_selected_cb: None,
+            comments_selected_cb: None,
 
             articles: Default::default(),
 
@@ -78,6 +80,13 @@ impl ArticlesList {
         F: FnMut(ArticleData, &mut ViewStack) + 'static,
     {
         self.article_selected_cb = Some(Box::new(callback));
+    }
+
+    pub fn on_comments_selected<F>(&mut self, callback: F)
+    where
+        F: FnMut(ArticleData, &mut ViewStack) + 'static,
+    {
+        self.comments_selected_cb = Some(Box::new(callback));
     }
 
     pub fn get_articles(&mut self) {
@@ -354,7 +363,15 @@ impl UiView for ArticlesList {
                                 ui.with_layout(
                                     Layout::top_down_justified(eframe::egui::Align::TOP),
                                     |ui| {
-                                        if ArticleListItem::ui(ui, ctx, article).clicked() {
+                                        let response = ArticleListItem::ui(
+                                            ui,
+                                            ctx,
+                                            article,
+                                            self.comments_selected_cb.as_mut(),
+                                            Some(view_stack),
+                                        );
+
+                                        if response.clicked() {
                                             self.habre_state.borrow_mut().selected_article =
                                                 Some(article.clone());
                                             self.article_selected_cb
@@ -446,7 +463,16 @@ impl UiView for ArticlesList {
 pub struct ArticleListItem;
 
 impl ArticleListItem {
-    pub fn ui(ui: &mut Ui, ctx: &Context, article: &ArticleData) -> Response {
+    pub fn ui<F>(
+        ui: &mut Ui,
+        ctx: &Context,
+        article: &ArticleData,
+        mut on_comments_clicked: Option<&mut F>,
+        view_stack: Option<&mut ViewStack>,
+    ) -> Response
+    where
+        F: FnMut(ArticleData, &mut ViewStack),
+    {
         let frame = Frame::NONE
             .corner_radius(5.)
             .fill(ctx.theme().default_visuals().extreme_bg_color)
@@ -541,11 +567,20 @@ impl ArticleListItem {
 
                         ui.label("|");
 
-                        Label::new(
-                            RichText::new(format!("💬 {}", article.comments_count)).size(18.),
-                        )
-                        .selectable(false)
-                        .ui(ui);
+                        let comments_count_str =
+                            RichText::new(format!("💬 {}", article.comments_count)).size(18.);
+                        if let (Some(cb), Some(vs)) = (on_comments_clicked.as_mut(), view_stack) {
+                            if article.comments_count > 0 {
+                                let button = Button::new(comments_count_str).frame(false);
+                                if ui.add(button).clicked() {
+                                    cb(article.clone(), vs);
+                                }
+                            } else {
+                                ui.label(comments_count_str);
+                            }
+                        } else {
+                            ui.label(comments_count_str);
+                        }
                     })
                 })
             });
