@@ -359,7 +359,9 @@ fn typed_text_ui(ui: &mut egui::Ui, ctx: &egui::Context, content: &TypedText) {
             {
                 // ToDo: Add Aurora OS url open call
                 #[cfg(not(target_arch = "x86_64"))]
-                crate::aurora_services::open_uri::open_uri(url).unwrap();
+                crate::aurora_services::open_uri::open_uri(url, |_| {
+                    // Do something with the response
+                });
                 #[cfg(target_arch = "x86_64")]
                 ctx.open_url(OpenUrl::new_tab(url));
             }
