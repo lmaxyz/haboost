@@ -5,9 +5,9 @@ use std::sync::{
     atomic::{AtomicBool, AtomicU8, Ordering},
 };
 
-use eframe::egui::{
-    self, Button, Color32, Context, Frame, Grid, Image, Label, Layout, Response, RichText,
-    ScrollArea, Sense, Spinner, TextEdit, Ui, UiBuilder, Widget,
+use egui::{
+    self, Button, Color32, Frame, Grid, Image, Label, Layout, Response, RichText, ScrollArea,
+    Sense, Spinner, TextEdit, Ui, UiBuilder, Widget,
 };
 use egui_flex::Flex;
 // use egui_taffy::{taffy::{self, prelude::TaffyZero, AlignContent, Size, Style}, tui, TuiBuilderLogic};
@@ -149,8 +149,8 @@ impl ArticlesList {
     fn search_ui(&mut self, ui: &mut Ui) {
         let search_edit = TextEdit::singleline(&mut self.search_text)
             .desired_width(f32::INFINITY)
-            .font(egui::epaint::text::FontId::proportional(24.))
-            .hint_text(RichText::new("Поиск").size(24.))
+            .font(egui::epaint::text::FontId::proportional(32.))
+            .hint_text(RichText::new("Поиск").size(32.))
             .show(ui)
             .response;
 
@@ -199,7 +199,7 @@ impl ArticlesList {
 
                 flex_ui.add_ui(egui_flex::item().grow(2.), |ui| {
                     let has_active_filters = self.has_active_filters();
-                    let button_text = RichText::new("🔧").size(28.);
+                    let button_text = RichText::new("🔧").size(32.);
                     let button = egui::Button::new(button_text).corner_radius(8.);
 
                     let button = if has_active_filters {
@@ -230,14 +230,14 @@ impl ArticlesList {
         }
     }
 
-    fn filter_popup_ui(&mut self, _ui: &mut Ui, ctx: &Context) {
+    fn filter_popup_ui(&mut self, ui: &mut Ui) {
         if !self.show_filter_popup {
             return;
         }
 
-        let screen_rect = ctx.content_rect();
-        let popup_width = screen_rect.width().min(300.0);
-        let popup_height = screen_rect.height().min(500.0);
+        let screen_rect = ui.ctx().viewport_rect();
+        let popup_width = screen_rect.width();
+        let popup_height = screen_rect.height();
 
         let popup_rect = egui::Rect::from_center_size(
             screen_rect.center(),
@@ -254,7 +254,7 @@ impl ArticlesList {
         if egui::Area::new(egui::Id::new("filter_popup_overlay"))
             .fixed_pos(screen_rect.min)
             .interactable(true)
-            .show(ctx, |ui| {
+            .show(ui.ctx(), |ui| {
                 let (resp, painter) = ui.allocate_painter(screen_rect.size(), Sense::click());
                 painter.add(egui::Shape::rect_filled(
                     screen_rect,
@@ -276,70 +276,70 @@ impl ArticlesList {
             .movable(false)
             .title_bar(true)
             .order(egui::Order::Foreground)
-            .show(ctx, |ui| {
+            .show(ui.ctx(), |ui| {
                 if !self.search_text.is_empty() {
-                    ui.label(RichText::new("Сортировка поиска").size(16.).strong());
+                    ui.label(RichText::new("Сортировка поиска").size(29.).strong());
                     ui.horizontal(|ui| {
                         ui.selectable_value(
                             &mut self.temp_search_sorting,
                             ArticlesSearchSorting::Relevance,
-                            RichText::new("По релевантности").size(16.),
+                            RichText::new("По релевантности").size(25.),
                         );
                         ui.selectable_value(
                             &mut self.temp_search_sorting,
                             ArticlesSearchSorting::Date,
-                            RichText::new("По дате").size(16.),
+                            RichText::new("По дате").size(25.),
                         );
                         ui.selectable_value(
                             &mut self.temp_search_sorting,
                             ArticlesSearchSorting::Rating,
-                            RichText::new("По рейтингу").size(16.),
+                            RichText::new("По рейтингу").size(25.),
                         );
                     });
                 } else {
-                    ui.label(RichText::new("Сначала показывать").size(16.).strong());
+                    ui.label(RichText::new("Сначала покавать").size(29.).strong());
                     ui.horizontal(|ui| {
                         ui.selectable_value(
                             &mut self.temp_sorting,
                             ArticlesListSorting::Newest,
-                            RichText::new("Новые").size(16.),
+                            RichText::new("Новые").size(25.),
                         );
                         ui.selectable_value(
                             &mut self.temp_sorting,
                             ArticlesListSorting::Best,
-                            RichText::new("Лучшие").size(16.),
+                            RichText::new("Лучшие").size(25.),
                         );
                     });
 
                     match self.temp_sorting {
                         ArticlesListSorting::Best => {
                             ui.add_space(10.);
-                            ui.label(RichText::new("Период").size(16.).strong());
+                            ui.label(RichText::new("Период").size(29.).strong());
                             ui.horizontal(|ui| {
                                 ui.selectable_value(
                                     &mut self.temp_date_filter,
                                     DateFilter::Daily,
-                                    RichText::new("Сутки").size(16.),
+                                    RichText::new("Сутки").size(25.),
                                 );
                                 ui.selectable_value(
                                     &mut self.temp_date_filter,
                                     DateFilter::Weekly,
-                                    RichText::new("Неделя").size(16.),
+                                    RichText::new("Неделя").size(25.),
                                 );
                                 ui.selectable_value(
                                     &mut self.temp_date_filter,
                                     DateFilter::Monthly,
-                                    RichText::new("Месяц").size(16.),
+                                    RichText::new("Месяц").size(25.),
                                 );
                                 ui.selectable_value(
                                     &mut self.temp_date_filter,
                                     DateFilter::Yearly,
-                                    RichText::new("Год").size(16.),
+                                    RichText::new("Год").size(25.),
                                 );
                                 ui.selectable_value(
                                     &mut self.temp_date_filter,
                                     DateFilter::AllTime,
-                                    RichText::new("Всё время").size(16.),
+                                    RichText::new("Всё время").size(25.),
                                 );
                             });
                         }
@@ -347,27 +347,27 @@ impl ArticlesList {
                     }
 
                     ui.add_space(10.);
-                    ui.label(RichText::new("Уровень сложности").size(16.).strong());
+                    ui.label(RichText::new("Уровень сложности").size(29.).strong());
                     ui.horizontal(|ui| {
                         ui.selectable_value(
                             &mut self.temp_complexity_filter,
                             None,
-                            RichText::new("Все").size(16.),
+                            RichText::new("Все").size(25.),
                         );
                         ui.selectable_value(
                             &mut self.temp_complexity_filter,
                             Some(ComplexityFilter::Easy),
-                            RichText::new("Простой").size(16.),
+                            RichText::new("Простой").size(25.),
                         );
                         ui.selectable_value(
                             &mut self.temp_complexity_filter,
                             Some(ComplexityFilter::Medium),
-                            RichText::new("Средний").size(16.),
+                            RichText::new("Средний").size(25.),
                         );
                         ui.selectable_value(
                             &mut self.temp_complexity_filter,
                             Some(ComplexityFilter::Hard),
-                            RichText::new("Сложный").size(16.),
+                            RichText::new("Сложный").size(25.),
                         );
                     });
                 }
@@ -377,17 +377,17 @@ impl ArticlesList {
                 ui.add_space(10.);
 
                 ui.horizontal(|ui| {
-                    if ui.button(RichText::new("Отмена").size(18.)).clicked() {
+                    if ui.button(RichText::new("Отмена").size(29.)).clicked() {
                         *should_close_clone.borrow_mut() = true;
                     }
                     ui.add_space(10.);
-                    if ui.button(RichText::new("Сбросить").size(18.)).clicked() {
+                    if ui.button(RichText::new("Сбросить").size(29.)).clicked() {
                         *should_reset_clone.borrow_mut() = true;
                         *should_close_clone.borrow_mut() = true;
                     }
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui
-                            .button(RichText::new("Применить").size(18.).strong())
+                            .button(RichText::new("Применить").size(29.).strong())
                             .clicked()
                         {
                             *should_apply_clone.borrow_mut() = true;
@@ -432,8 +432,8 @@ impl ArticlesList {
 }
 
 impl UiView for ArticlesList {
-    fn ui(&mut self, ui: &mut Ui, ctx: &Context, view_stack: &mut crate::view_stack::ViewStack) {
-        self.filter_popup_ui(ui, ctx);
+    fn ui(&mut self, ui: &mut Ui, view_stack: &mut crate::view_stack::ViewStack) {
+        self.filter_popup_ui(ui);
 
         Flex::vertical()
             .justify(egui_flex::FlexJustify::SpaceBetween)
@@ -453,7 +453,7 @@ impl UiView for ArticlesList {
                                     .as_ref()
                                     .map_or("Все статьи", |hub| &hub.title),
                             )
-                            .size(28.)
+                            .size(40.)
                             .strong();
                             ui.add(Label::new(article_list_title))
                         });
@@ -467,14 +467,14 @@ impl UiView for ArticlesList {
                 );
 
                 if self.is_loading.load(Ordering::Relaxed) {
-                    f_ui.add(egui_flex::item(), Spinner::new().size(50.));
+                    f_ui.add(egui_flex::item(), Spinner::new().size(100.));
                 } else {
                     f_ui.add_ui(egui_flex::item().shrink(), |ui| {
                         let mut scroll_area = ScrollArea::vertical()
                             .max_width(ui.available_width())
                             .hscroll(false)
                             .scroll_bar_visibility(
-                                eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
+                                egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
                             );
                         if self.reset_scroll {
                             scroll_area = scroll_area.vertical_scroll_offset(0.);
@@ -484,11 +484,10 @@ impl UiView for ArticlesList {
                         scroll_area.show(ui, |ui| {
                             for article in self.articles.read().unwrap().iter() {
                                 ui.with_layout(
-                                    Layout::top_down_justified(eframe::egui::Align::TOP),
+                                    Layout::top_down_justified(egui::Align::TOP),
                                     |ui| {
                                         let response = ArticleListItem::ui(
                                             ui,
-                                            ctx,
                                             article,
                                             self.comments_selected_cb.as_mut(),
                                             Some(view_stack),
@@ -553,7 +552,7 @@ impl UiView for ArticlesList {
         //         .max_width(tui.egui_ui().available_width())
         //         .hscroll(false)
         //         .scroll_bar_visibility(
-        //             eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
+        //             egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
         //         );
         //     if self.reset_scroll {
         //         scroll_area = scroll_area.vertical_scroll_offset(0.);
@@ -563,7 +562,7 @@ impl UiView for ArticlesList {
         //     tui.style(Style{size: taffy::Size::from_percent(1., 1.), ..Default::default()}).ui(|ui| {
         //         scroll_area.show(ui, |ui| {
         //             for article in self.articles.read().unwrap().iter() {
-        //                 ui.with_layout(Layout::top_down_justified(eframe::egui::Align::Min), |ui| {
+        //                 ui.with_layout(Layout::top_down_justified(egui::Align::Min), |ui| {
         //                     if ArticleListItem::ui(ui, ctx, article).clicked() {
         //                         self.habre_state.borrow_mut().selected_article = Some(article.clone());
         //                         self.article_selected_cb.as_mut().map(|cb| cb(article.clone(), view_stack));
@@ -588,7 +587,6 @@ pub struct ArticleListItem;
 impl ArticleListItem {
     pub fn ui<F>(
         ui: &mut Ui,
-        ctx: &Context,
         article: &ArticleData,
         mut on_comments_clicked: Option<&mut F>,
         view_stack: Option<&mut ViewStack>,
@@ -598,7 +596,7 @@ impl ArticleListItem {
     {
         let frame = Frame::NONE
             .corner_radius(5.)
-            .fill(ctx.theme().default_visuals().extreme_bg_color)
+            .fill(ui.ctx().theme().default_visuals().extreme_bg_color)
             .inner_margin(10.);
 
         ui.scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
@@ -608,14 +606,14 @@ impl ArticleListItem {
                     ui.set_width(ui.available_width());
                     let author_txt = RichText::new(article.author.as_str())
                         .strong()
-                        .size(16.)
-                        .color(ctx.theme().default_visuals().hyperlink_color);
+                        .size(25.)
+                        .color(ui.ctx().theme().default_visuals().hyperlink_color);
 
                     ui.vertical(|ui| {
                         ui.spacing_mut().item_spacing = egui::Vec2::new(0., 5.);
                         Label::new(author_txt).selectable(false).ui(ui);
 
-                        Label::new(RichText::new(article.published_at.as_str()).size(14.))
+                        Label::new(RichText::new(article.published_at.as_str()).size(22.))
                             .selectable(false)
                             .ui(ui);
                     });
@@ -648,9 +646,9 @@ impl ArticleListItem {
                             // tag_frame.end(ui);
 
                             if i > 0 {
-                                ui.label("|");
+                                ui.label("-");
                             }
-                            Label::new(RichText::new(tag).size(14.))
+                            Label::new(RichText::new(tag).size(22.))
                                 .selectable(false)
                                 .ui(ui);
                         }
@@ -664,34 +662,34 @@ impl ArticleListItem {
                             "high" => Some(("☠ Сложный", Color32::RED)),
                             _ => None,
                         } {
-                            Label::new(RichText::new(label).size(18.).strong().color(color))
+                            Label::new(RichText::new(label).size(25.).strong().color(color))
                                 .selectable(false)
                                 .ui(ui);
                         };
 
                         Label::new(
-                            RichText::new(format!("🕑 {} мин", article.reading_time)).size(18.),
+                            RichText::new(format!("🕑 {} мин", article.reading_time)).size(25.),
                         )
                         .selectable(false)
                         .ui(ui);
                     });
 
                     ui.horizontal(|ui| {
-                        Label::new(RichText::new(article.title.as_str()).size(20.).strong())
+                        Label::new(RichText::new(article.title.as_str()).size(32.).strong())
                             .wrap()
                             .selectable(false)
                             .ui(ui);
                     });
 
                     ui.horizontal(|ui| {
-                        Label::new(RichText::new(format!("★ {}", article.score)).size(18.))
+                        Label::new(RichText::new(format!("★ {}", article.score)).size(29.))
                             .selectable(false)
                             .ui(ui);
 
-                        ui.label("|");
+                        ui.add_space(15.);
 
                         let comments_count_str =
-                            RichText::new(format!("💬 {}", article.comments_count)).size(18.);
+                            RichText::new(format!("💬 {}", article.comments_count)).size(29.);
                         if let (Some(cb), Some(vs)) = (on_comments_clicked.as_mut(), view_stack) {
                             if article.comments_count > 0 {
                                 let button = Button::new(comments_count_str).frame(false);

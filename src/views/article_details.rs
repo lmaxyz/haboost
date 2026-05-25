@@ -4,9 +4,10 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
 #[cfg(target_arch = "x86_64")]
-use eframe::egui::OpenUrl;
-use eframe::egui::{
-    self, Color32, Context, Image, Label, Layout, RichText, ScrollArea, Spinner, Ui, Widget,
+use egui::OpenUrl;
+use egui::Vec2;
+use egui::{
+    self, Color32, Image, Label, Layout, RichText, ScrollArea, Spinner, Ui, Widget,
     scroll_area::ScrollSource,
 };
 
@@ -73,15 +74,10 @@ impl ArticleDetails {
 }
 
 impl UiView for ArticleDetails {
-    fn ui(
-        &mut self,
-        ui: &mut eframe::egui::Ui,
-        ctx: &Context,
-        view_stack: &mut crate::view_stack::ViewStack,
-    ) {
+    fn ui(&mut self, ui: &mut egui::Ui, view_stack: &mut crate::view_stack::ViewStack) {
         ui.vertical(|ui| {
             if self.is_loading.load(Ordering::Relaxed) {
-                ui.add_sized(ui.available_size(), Spinner::new().size(50.));
+                ui.add_sized(ui.available_size(), Spinner::new().size(100.));
             } else {
                 let mut scroll_area = ScrollArea::vertical()
                     // .auto_shrink(false)
@@ -106,7 +102,7 @@ impl UiView for ArticleDetails {
                             RichText::new(self.article_title.read().unwrap().as_str())
                                 .heading()
                                 .strong()
-                                .size(28.),
+                                .size(40.),
                         )
                         .selectable(false)
                         .wrap(),
@@ -114,53 +110,47 @@ impl UiView for ArticleDetails {
                     for (i, content) in self.article_content.read().unwrap().iter().enumerate() {
                         match content {
                             ArticleContent::Header(h_lvl, content) => {
-                                ui.with_layout(
-                                    Layout::left_to_right(eframe::egui::Align::Min),
-                                    |ui| {
-                                        ui.add(
-                                            Label::new(
-                                                RichText::new(content)
-                                                    .heading()
-                                                    .strong()
-                                                    .size(27. - *h_lvl as f32),
-                                            )
-                                            .selectable(false)
-                                            .wrap(),
-                                        );
-                                    },
-                                );
+                                ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
+                                    ui.add(
+                                        Label::new(
+                                            RichText::new(content)
+                                                .heading()
+                                                .strong()
+                                                .size(36. - *h_lvl as f32),
+                                        )
+                                        .selectable(false)
+                                        .wrap(),
+                                    );
+                                });
                             }
                             ArticleContent::Code { lang, content } => {
-                                ui.with_layout(
-                                    Layout::left_to_right(eframe::egui::Align::Min),
-                                    |ui| {
-                                        let code_scroll = ScrollArea::horizontal()
-                                            .id_salt(i)
-                                            .scroll_source(self.selected_code_scroll_id.map_or(
-                                                ScrollSource::NONE,
-                                                |current_idx| {
-                                                    if current_idx == i {
-                                                        ScrollSource::ALL
-                                                    } else {
-                                                        ScrollSource::NONE
-                                                    }
-                                                },
-                                            ));
-                                        if code_scroll
-                                            .show(ui, |ui| code_view(ui, ctx, content, lang))
-                                            .inner
-                                            .clicked()
+                                ui.with_layout(Layout::left_to_right(egui::Align::Min), |ui| {
+                                    let code_scroll = ScrollArea::horizontal()
+                                        .id_salt(i)
+                                        .scroll_source(self.selected_code_scroll_id.map_or(
+                                            ScrollSource::NONE,
+                                            |current_idx| {
+                                                if current_idx == i {
+                                                    ScrollSource::ALL
+                                                } else {
+                                                    ScrollSource::NONE
+                                                }
+                                            },
+                                        ));
+                                    if code_scroll
+                                        .show(ui, |ui| code_view(ui, content, lang))
+                                        .inner
+                                        .clicked()
+                                    {
+                                        if self
+                                            .selected_code_scroll_id
+                                            .take_if(|current_idx| *current_idx == i)
+                                            .is_none()
                                         {
-                                            if self
-                                                .selected_code_scroll_id
-                                                .take_if(|current_idx| *current_idx == i)
-                                                .is_none()
-                                            {
-                                                self.selected_code_scroll_id = Some(i);
-                                            };
+                                            self.selected_code_scroll_id = Some(i);
                                         };
-                                    },
-                                );
+                                    };
+                                });
                             }
                             ArticleContent::Blockquote(content) => {
                                 ui.horizontal(|ui| {
@@ -183,7 +173,7 @@ impl UiView for ArticleDetails {
                                                 .ui(ui);
                                                 egui::Label::new(
                                                     egui::RichText::new(content)
-                                                        .size(16.)
+                                                        .size(25.)
                                                         .color(Color32::BLACK)
                                                         .italics(),
                                                 )
@@ -198,13 +188,13 @@ impl UiView for ArticleDetails {
                                 ui.horizontal_wrapped(|ui| {
                                     ui.spacing_mut().item_spacing.x = 0.0;
                                     for content in conetnt_stream {
-                                        typed_text_ui(ui, ctx, &content)
+                                        typed_text_ui(ui, &content)
                                     }
                                 });
                             }
                             ArticleContent::Image(src) => {
                                 ui.with_layout(
-                                    Layout::top_down_justified(eframe::egui::Align::Center),
+                                    Layout::top_down_justified(egui::Align::Center),
                                     |ui| {
                                         let img = Image::new(src)
                                             .max_width(ui.available_width())
@@ -222,7 +212,7 @@ impl UiView for ArticleDetails {
                                 match text {
                                     TypedText::Common(text) => {
                                         ui.add(
-                                            Label::new(RichText::new(text).size(18.))
+                                            Label::new(RichText::new(text).size(29.))
                                                 .wrap()
                                                 .selectable(false),
                                         );
@@ -237,7 +227,7 @@ impl UiView for ArticleDetails {
                                         ui.horizontal_wrapped(|ui| {
                                             ui.spacing_mut().item_spacing.x = 0.0;
                                             for typed_text in p_content {
-                                                typed_text_ui(ui, ctx, typed_text);
+                                                typed_text_ui(ui, typed_text);
                                             }
                                         });
                                     }
@@ -260,7 +250,7 @@ impl UiView for ArticleDetails {
                         ui.centered_and_justified(|ui| {
                             let comments_button = egui::Button::new(
                                 RichText::new(format!("Комментарии ({})", comments_count))
-                                    .size(20.),
+                                    .size(32.),
                             )
                             .corner_radius(5.);
                             if ui.add(comments_button).clicked() {
@@ -276,7 +266,7 @@ impl UiView for ArticleDetails {
                 });
 
                 if self.image_viewer.image_url.is_some() {
-                    ui.put(ctx.content_rect(), |ui: &mut egui::Ui| {
+                    ui.put(ui.ctx().content_rect(), |ui: &mut egui::Ui| {
                         egui::Frame::NONE
                             .fill(Color32::from_black_alpha(200))
                             .outer_margin(0)
@@ -310,79 +300,78 @@ impl ImageViewer {
     fn ui(&mut self, ui: &mut Ui) {
         if let Some(image_url) = self.image_url.as_ref() {
             let image_url = image_url.clone();
-            ui.with_layout(
-                Layout::top_down_justified(eframe::egui::Align::Center),
-                |ui| {
-                    let cross_rect = egui::Rect::from_center_size(
-                        (ui.available_width() - 25., ui.clip_rect().top() + 25.).into(),
-                        (25., 25.).into(),
-                    );
+            ui.with_layout(Layout::top_down_justified(egui::Align::Center), |ui| {
+                let cross_rect = egui::Rect::from_center_size(
+                    (ui.available_width() - 25., ui.clip_rect().top() + 25.).into(),
+                    (25., 25.).into(),
+                );
 
-                    if ui.allocate_rect(cross_rect, egui::Sense::CLICK).clicked() {
-                        self.image_url = None;
-                        self.scene_rect = egui::Rect::ZERO;
-                    }
+                if ui.allocate_rect(cross_rect, egui::Sense::CLICK).clicked() {
+                    self.image_url = None;
+                    self.scene_rect = egui::Rect::ZERO;
+                }
 
-                    let painter = ui.painter_at(cross_rect);
-                    painter.line_segment(
-                        [cross_rect.left_top(), cross_rect.right_bottom()],
-                        egui::Stroke::new(3.0, egui::Color32::LIGHT_GRAY),
-                    );
-                    painter.line_segment(
-                        [cross_rect.right_top(), cross_rect.left_bottom()],
-                        egui::Stroke::new(3.0, egui::Color32::LIGHT_GRAY),
-                    );
+                let painter = ui.painter_at(cross_rect);
+                painter.line_segment(
+                    [cross_rect.left_top(), cross_rect.right_bottom()],
+                    egui::Stroke::new(3.0, egui::Color32::LIGHT_GRAY),
+                );
+                painter.line_segment(
+                    [cross_rect.right_top(), cross_rect.left_bottom()],
+                    egui::Stroke::new(3.0, egui::Color32::LIGHT_GRAY),
+                );
 
-                    egui::Scene::new()
-                        .max_inner_size([1000.0, 1200.0])
-                        .zoom_range(0.3..=3.0)
-                        .show(ui, &mut self.scene_rect, |ui| ui.add(Image::new(image_url)));
-                },
-            );
+                let image = Image::new(image_url);
+
+                egui::Scene::new()
+                    .max_inner_size(image.size().unwrap_or(Vec2::from([1000.0, 1200.0])))
+                    .zoom_range(0.5..=3.0)
+                    .show(ui, &mut self.scene_rect, |ui| ui.add(image));
+            });
         }
     }
 }
 
-fn typed_text_ui(ui: &mut egui::Ui, ctx: &egui::Context, content: &TypedText) {
+fn typed_text_ui(ui: &mut egui::Ui, content: &TypedText) {
     match content {
         TypedText::Code(text) => {
-            ui.label(RichText::new(text).code().size(16.));
+            ui.label(RichText::new(text).code().size(29.));
         }
         TypedText::Link { url, value } => {
             if ui
                 .link(
                     RichText::new(value)
-                        .size(18.)
-                        .color(ctx.theme().default_visuals().hyperlink_color),
+                        .size(29.)
+                        .color(ui.ctx().theme().default_visuals().hyperlink_color),
                 )
                 .clicked()
             {
                 // ToDo: Add Aurora OS url open call
                 #[cfg(not(target_arch = "x86_64"))]
-                crate::aurora_services::open_uri::open_uri(url, |_| {
+                aurora_services::open_uri::open_uri(url, |_| {
                     // Do something with the response
                 });
                 #[cfg(target_arch = "x86_64")]
-                ctx.open_url(OpenUrl::new_tab(url));
+                ui.ctx().open_url(OpenUrl::new_tab(url));
             }
         }
         TypedText::Common(text) => {
             ui.add(
-                Label::new(RichText::new(text).size(18.))
+                Label::new(RichText::new(text).size(29.))
                     .wrap()
                     .selectable(false),
             );
         }
         TypedText::Italic(text) => {
             ui.add(
-                Label::new(RichText::new(text).size(18.).italics())
+                Label::new(RichText::new(text).size(29.).italics())
                     .wrap()
                     .selectable(false),
             );
         }
         TypedText::Strong(text) => {
             ui.add(
-                Label::new(RichText::new(text).size(18.).strong())
+                Label::new(RichText::new(text).size(29.).strong())
                     .wrap()
                     .selectable(false),
             );
@@ -390,7 +379,7 @@ fn typed_text_ui(ui: &mut egui::Ui, ctx: &egui::Context, content: &TypedText) {
     }
 }
 
-fn code_view(ui: &mut Ui, ctx: &Context, code: &str, lang: &str) -> eframe::egui::Response {
-    let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(ctx, ui.style());
+fn code_view(ui: &mut Ui, code: &str, lang: &str) -> egui::Response {
+    let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), ui.style());
     egui_extras::syntax_highlighting::code_view_ui(ui, &theme, code, lang)
 }

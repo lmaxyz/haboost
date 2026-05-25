@@ -1,11 +1,6 @@
 use std::cell::RefCell;
 use std::rc::Rc;
 
-use eframe::egui::{self, Color32};
-use eframe::epaint::text::{FontInsert, InsertFontFamily};
-
-#[cfg(not(target_arch = "x86_64"))]
-mod aurora_services;
 mod habr_client;
 mod view_stack;
 mod views;
@@ -22,21 +17,19 @@ use habr_client::hub::Hub;
 
 use view_stack::{UiView, ViewStack};
 
-fn main() -> eframe::Result {
+fn main() -> aurora_egui::error::Result<()> {
     env_logger::init(); // Log to stderr (if you run with `RUST_LOG=debug`).
     let viewport = egui::ViewportBuilder::default().with_transparent(true);
-    let options = eframe::NativeOptions {
+    let options = aurora_egui::NativeOptions {
         viewport: viewport,
-        renderer: eframe::Renderer::Glow,
         ..Default::default()
     };
-    eframe::run_native(
+    aurora_egui::run_native(
         "Haboost",
         options,
         Box::new(|cc| {
             egui_extras::install_image_loaders(&cc.egui_ctx);
-            add_font(&cc.egui_ctx);
-            Ok(Box::<MyApp>::default())
+            Box::<MyApp>::default()
         }),
     )
 }
@@ -86,59 +79,31 @@ impl Default for MyApp {
     }
 }
 
-impl eframe::App for MyApp {
-    fn clear_color(&self, _visuals: &egui::Visuals) -> [f32; 4] {
-        Color32::TRANSPARENT.to_normalized_gamma_f32()
+impl aurora_egui::App for MyApp {
+    fn update(&mut self, ui: &mut egui::Ui, _frame: &mut aurora_egui::Frame) {
+        let main_frame = egui::Frame::new().corner_radius(56).inner_margin(15.);
+        egui::CentralPanel::default()
+            .frame(main_frame)
+            .show_inside(ui, |ui| {
+                ui.ctx()
+                    .set_theme(self.state.borrow().settings.borrow().theme());
+                ui.spacing_mut().item_spacing = egui::Vec2::new(15., 15.);
+
+                self.view_stack.ui(ui);
+            });
     }
-    fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
-        let mut top_panel = egui::TopBottomPanel::top("top_bar")
-            .exact_height(41.0)
-            .show_separator_line(false);
+    fn cover_ui(&mut self, ui: &mut egui::Ui) {
+        // Hotfix for cover
+        let main_rect = ui.ctx().viewport_rect();
+        ui.set_max_size(egui::Vec2::from([
+            main_rect.width(),
+            main_rect.height() / 2.0,
+        ]));
 
-        let mut central_panel = egui::CentralPanel::default();
-
-        if self
-            .state
-            .borrow()
-            .settings
-            .borrow()
-            .use_system_background()
-        {
-            let frame = egui::Frame::default().fill(Color32::TRANSPARENT);
-            top_panel = top_panel.frame(frame);
-
-            let frame = egui::Frame::default()
-                .inner_margin(10.)
-                .fill(Color32::TRANSPARENT);
-            central_panel = central_panel.frame(frame);
-        }
-
-        top_panel.show(ctx, |_| {});
-        central_panel.show(ctx, |ui| {
-            ctx.set_pixels_per_point(self.state.borrow().settings.borrow().scale_factor());
-            ctx.set_theme(self.state.borrow().settings.borrow().theme());
-            ui.spacing_mut().item_spacing = egui::Vec2::new(15., 15.);
-
-            self.view_stack.ui(ui, ctx);
+        ui.centered_and_justified(|ui| {
+            ui.label(egui::RichText::new("Haboost").heading().size(56.))
         });
     }
-}
-
-fn add_font(ctx: &egui::Context) {
-    ctx.add_font(FontInsert::new(
-        "my_font",
-        egui::FontData::from_static(include_bytes!("../assets/fonts/Roboto-Regular.ttf")),
-        vec![
-            InsertFontFamily {
-                family: egui::FontFamily::Proportional,
-                priority: egui::epaint::text::FontPriority::Highest,
-            },
-            InsertFontFamily {
-                family: egui::FontFamily::Monospace,
-                priority: egui::epaint::text::FontPriority::Lowest,
-            },
-        ],
-    ));
 }
 
 #[derive(Debug)]

@@ -1,4 +1,4 @@
-use eframe::egui::{self, Button, Label, RichText};
+use egui::{Button, Label, RichText};
 // use egui_taffy::{taffy::{self, prelude::TaffyZero}, tui, TuiBuilderLogic};
 
 pub struct Pager<'a> {
@@ -23,7 +23,7 @@ impl<'a> Pager<'a> {
             .align_items(egui_flex::FlexAlign::Center)
             .w_full()
             .show(ui, |ui| {
-                let prev_button = Button::new(RichText::new("<").size(24.0)).corner_radius(50.);
+                let prev_button = Button::new(RichText::new("<").size(32.0)).corner_radius(50.);
 
                 if ui.add(egui_flex::item().grow(1.), prev_button).clicked() {
                     self.prev_page();
@@ -32,12 +32,12 @@ impl<'a> Pager<'a> {
                 let label = ui.add(
                     egui_flex::item().grow(1.),
                     Label::new(
-                        RichText::new(format!("{}/{}", self.current_page, self.max_page)).size(28.),
+                        RichText::new(format!("{}/{}", self.current_page, self.max_page)).size(32.),
                     )
                     .extend(),
                 );
 
-                let next_button = Button::new(RichText::new(">").size(24.0)).corner_radius(50.0);
+                let next_button = Button::new(RichText::new(">").size(32.0)).corner_radius(50.0);
 
                 if ui.add(egui_flex::item().grow(1.), next_button).clicked() {
                     self.next_page();

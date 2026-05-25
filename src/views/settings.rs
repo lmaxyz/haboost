@@ -1,5 +1,5 @@
-use eframe::egui;
-use egui_theme_switch::ThemeSwitch;
+use egui;
+// use egui_theme_switch::ThemeSwitch;
 use serde::{Deserialize, Serialize};
 use toml;
 
@@ -10,7 +10,6 @@ pub struct SettingsData {
     font_size: f32,
     scale_factor: f32,
     dark_theme: bool,
-    use_system_background: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -21,20 +20,12 @@ pub struct Settings {
 }
 
 impl Settings {
-    pub fn scale_factor(&self) -> f32 {
-        self.saved_data.scale_factor
-    }
-
     pub fn theme(&self) -> egui::ThemePreference {
         if self.saved_data.dark_theme {
             egui::ThemePreference::Dark
         } else {
             egui::ThemePreference::Light
         }
-    }
-
-    pub fn use_system_background(&self) -> bool {
-        self.saved_data.use_system_background
     }
 
     fn save_settings(&mut self) {
@@ -76,29 +67,14 @@ impl Settings {
 }
 
 impl UiView for Settings {
-    fn ui(
-        &mut self,
-        ui: &mut egui::Ui,
-        _ctx: &egui::Context,
-        _view_stack: &mut crate::view_stack::ViewStack,
-    ) {
-        ui.vertical_centered_justified(|ui| ui.label(egui::RichText::new("Настройки").size(28.)));
+    fn ui(&mut self, ui: &mut egui::Ui, _view_stack: &mut crate::view_stack::ViewStack) {
+        ui.vertical_centered_justified(|ui| ui.label(egui::RichText::new("Настройки").size(40.)));
         ui.separator();
 
-        let theme_selector = ui.add(ThemeSwitch::new(&mut self.temp_theme));
-        if theme_selector.changed() {
-            self.temp_data.dark_theme = self.temp_theme == egui::ThemePreference::Dark;
-        }
-
-        if ui
-            .radio(
-                self.temp_data.use_system_background,
-                "Использовать системный фон",
-            )
-            .clicked()
-        {
-            self.temp_data.use_system_background = !self.temp_data.use_system_background
-        }
+        // let theme_selector = ui.add(ThemeSwitch::new(&mut self.temp_theme));
+        // if theme_selector.changed() {
+        //     self.temp_data.dark_theme = self.temp_theme == egui::ThemePreference::Dark;
+        // }
 
         ui.label(
             egui::RichText::new("Коэффициент масштабирования").size(self.saved_data.font_size),
@@ -130,13 +106,12 @@ impl UiView for Settings {
 impl Default for Settings {
     fn default() -> Self {
         let data = SettingsData {
-            font_size: 18.,
+            font_size: 24.,
             #[cfg(not(target_arch = "x86_64"))]
             scale_factor: 2.0,
             #[cfg(target_arch = "x86_64")]
             scale_factor: 1.,
             dark_theme: true,
-            use_system_background: false,
         };
         Self {
             temp_data: data,

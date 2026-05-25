@@ -1,5 +1,4 @@
-use eframe::egui;
-use eframe::egui::{Pos2, Rect, TouchPhase, Vec2};
+use egui::{Pos2, Rect, TouchPhase, Vec2};
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -25,7 +24,7 @@ impl ViewStack {
         None
     }
 
-    pub fn ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context) {
+    pub fn ui(&mut self, ui: &mut egui::Ui) {
         if self.views.len() > 1 {
             self.backwarder.check_input(ui);
             if self.backwarder.activated() {
@@ -34,7 +33,7 @@ impl ViewStack {
         }
 
         if let Some(view) = self.views.last().map(|view| view.clone()) {
-            view.borrow_mut().ui(ui, ctx, self);
+            view.borrow_mut().ui(ui, self);
 
             if self.views.len() > 1 {
                 self.backwarder.ui(ui);
@@ -44,7 +43,7 @@ impl ViewStack {
 }
 
 pub trait UiView {
-    fn ui(&mut self, ui: &mut egui::Ui, ctx: &egui::Context, view_stack: &mut ViewStack);
+    fn ui(&mut self, ui: &mut egui::Ui, view_stack: &mut ViewStack);
 }
 
 struct Backward {
@@ -59,7 +58,7 @@ struct Backward {
 impl Backward {
     pub fn ui(&mut self, ui: &mut egui::Ui) {
         let ready_to_activate = self.start_pos_offset.x >= self.activate_threshold;
-        let size = 45.;
+        let size = 70.;
         let y_pos = ui.clip_rect().top() + 10.;
         let arrow_length = size / 2.0;
 

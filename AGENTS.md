@@ -84,7 +84,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 // 2. Внешние крейты (по алфавиту)
 use chrono::{DateTime, Local};
-use eframe::egui::{self, Color32};
+use egui::{self, Color32};
 use serde::{Deserialize, Serialize};
 
 // 3. Локальные модули (через crate::)

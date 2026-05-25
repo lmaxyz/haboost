@@ -1,16 +1,22 @@
 [package]
 name = "haboost"
-version = "0.8.1"
+version = "0.9.0"
 edition = "2024"
 
 [dependencies]
-eframe = { version = "0.33" }
-egui_extras = { version = "0.33", default-features = false, features = [
+# eframe = { version = "0.33", features = ["wgpu"] }
+egui = {version = "0.34.2"}
+aurora_egui = { git = "https://github.com/auroraos-rs/aurora-gui" }
+aurora_services = "0.1.1"
+egui_extras = { version = "0.34", default-features = false, features = [
     "image",
     "http",
+    "svg_text",
+    "gif",
+    "webp",
 ] }
-egui_flex = "0.5"
-egui-theme-switch = "0.5"
+egui_flex = "0.6"
+# egui-theme-switch = "0.7"
 
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
@@ -27,7 +33,6 @@ image = { version = "0.25", default-features = false, features = [
 ] }
 reqwest = { version = "0.12", default-features = false, features = [
     "rustls-tls",
-    # "default-tls",
     "http2",
 ] }
 tokio = { version = "1.48", default-features = false, features = [
@@ -59,5 +64,6 @@ assets = [
 ]
 
 [patch.crates-io]
-# winit = { git = "https://github.com/lmaxyz/winit", branch = "aurora" }
+# winit = { git = "https://github.com/lmaxyz/winit", branch = "rm_maliit" }
 glutin = { git = "https://github.com/lmaxyz/glutin", branch = "aurora_device_fix" }
+egui-winit = { git = "https://github.com/lmaxyz/egui/", branch = "more_flexible_egui-winit" }

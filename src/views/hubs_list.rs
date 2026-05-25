@@ -7,9 +7,9 @@ use std::{
     },
 };
 
-use eframe::egui::{
-    self, Image, Label, Layout, Response, RichText, ScrollArea, Sense, Spinner, TextEdit, Ui,
-    UiBuilder, Widget,
+use egui::{
+    self, Image, Label, Response, RichText, ScrollArea, Sense, Spinner, TextEdit, Ui, UiBuilder,
+    Widget,
 };
 use egui_flex::Flex;
 
@@ -65,8 +65,8 @@ impl HubsList {
     fn search_ui(&mut self, ui: &mut Ui) {
         let search_edit = TextEdit::singleline(&mut self.search_text)
             .desired_width(f32::INFINITY)
-            .font(egui::epaint::text::FontId::proportional(24.))
-            .hint_text(RichText::new("Поиск").size(24.))
+            .font(egui::epaint::text::FontId::proportional(32.))
+            .hint_text(RichText::new("Поиск").size(32.))
             .show(ui)
             .response;
 
@@ -131,7 +131,7 @@ impl HubsList {
 }
 
 impl UiView for HubsList {
-    fn ui(&mut self, ui: &mut egui::Ui, _ctx: &egui::Context, view_stack: &mut ViewStack) {
+    fn ui(&mut self, ui: &mut egui::Ui, view_stack: &mut ViewStack) {
         egui_flex::Flex::vertical()
             .align_items(egui_flex::FlexAlign::Start)
             .justify(egui_flex::FlexJustify::SpaceBetween)
@@ -139,82 +139,74 @@ impl UiView for HubsList {
             .h_full()
             .w_full()
             .show(ui, |f_ui| {
-                f_ui.add_flex(
-                    egui_flex::item().shrink(),
-                    egui_flex::Flex::vertical().gap(egui::Vec2::new(10., 5.)),
-                    |f_ui| {
-                        let settings_top_point = f_ui.ui().available_rect_before_wrap().top();
-                        let settings_rect = egui::Rect::from_min_size(
-                            (f_ui.ui().available_width() - 38., settings_top_point).into(),
-                            (38., 38.).into(),
-                        );
-                        f_ui.add_ui(egui_flex::item(), |ui| {
-                            ui.with_layout(
-                                Layout::default().with_cross_align(egui::Align::Center),
-                                |ui| egui::Label::new(RichText::new("Хабы").size(30.)).ui(ui),
+                // ToDo: Зарефакторить лейаутинг. Нужно исправить долгое выезжание интерфейса при старте программы.
+                f_ui.add_flex(egui_flex::item(), egui_flex::Flex::vertical(), |f_ui| {
+                    f_ui.add_flex(
+                        egui_flex::item(),
+                        egui_flex::Flex::horizontal()
+                            .w_full()
+                            .justify(egui_flex::FlexJustify::SpaceBetween),
+                        |f_ui| {
+                            f_ui.add(
+                                egui_flex::item(),
+                                egui::Label::new(RichText::new("Хабы").size(40.).strong()),
                             );
-
-                            if ui
-                                .put(
-                                    settings_rect,
-                                    egui::Button::new(RichText::new("⚙").size(28.)),
-                                )
-                                .clicked()
-                            {
+                            let settings_btn = f_ui.add(
+                                egui_flex::item(),
+                                egui::Button::new(RichText::new("⚙").size(36.))
+                                    .min_size(egui::vec2(40., 40.)),
+                            );
+                            if settings_btn.clicked() {
                                 view_stack.push(self.habre_state.borrow().settings.clone());
                             }
-                        });
+                        },
+                    );
 
-                        f_ui.add_ui(egui_flex::item(), |ui| ui.separator());
+                    f_ui.add_ui(egui_flex::item(), |ui| {
+                        self.search_ui(ui);
+                    });
 
-                        f_ui.add_ui(egui_flex::item(), |ui| {
-                            self.search_ui(ui);
-                        });
-                        f_ui.add_ui(egui_flex::item(), |ui| ui.add_space(10.));
-
-                        if !self.is_loading.load(Ordering::Relaxed) {
-                            f_ui.add_ui(egui_flex::item().shrink(), |ui| {
-                                let mut scroll_area = ScrollArea::vertical()
-                                .max_width(ui.available_width())
-                                .hscroll(false)
-                                .scroll_bar_visibility(
-                                    eframe::egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
-                                );
-
-                                if self.reset_scroll_area {
-                                    scroll_area = scroll_area.vertical_scroll_offset(0.);
-                                    self.reset_scroll_area = false;
-                                }
-
-                                scroll_area.show(ui, |ui| {
-                                    for (index, hub) in self.hubs.read().unwrap().iter().enumerate()
-                                    {
-                                        if index > 0 {
-                                            ui.separator();
-                                        }
-
-                                        if HubUI::ui(ui, hub).clicked() {
-                                            {
-                                                let mut state = self.habre_state.borrow_mut();
-                                                state.selected_hub = Some(hub.clone());
-                                            }
-
-                                            self.hub_selected_cb.as_mut().map(|cb| {
-                                                cb(hub, view_stack);
-                                            });
-                                        }
-                                    }
-                                })
-                            });
-                        }
-                    },
-                );
+                    f_ui.add_ui(egui_flex::item(), |ui| ui.separator());
+                });
 
                 if self.is_loading.load(Ordering::Relaxed) {
                     f_ui.add(
                         egui_flex::item().align_self(egui_flex::FlexAlign::Center),
-                        Spinner::new().size(50.),
+                        Spinner::new().size(100.),
                     );
+                } else {
+                    f_ui.add_ui(egui_flex::item().shrink(), |ui| {
+                        let mut scroll_area = ScrollArea::vertical()
+                            .max_width(ui.available_width())
+                            .hscroll(false)
+                            .scroll_bar_visibility(
+                                egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
+                            );
+
+                        if self.reset_scroll_area {
+                            scroll_area = scroll_area.vertical_scroll_offset(0.);
+                            self.reset_scroll_area = false;
+                        }
+
+                        scroll_area.show(ui, |ui| {
+                            for (index, hub) in self.hubs.read().unwrap().iter().enumerate() {
+                                if index > 0 {
+                                    ui.separator();
+                                }
+
+                                if HubUI::ui(ui, hub).clicked() {
+                                    {
+                                        let mut state = self.habre_state.borrow_mut();
+                                        state.selected_hub = Some(hub.clone());
+                                    }
+
+                                    self.hub_selected_cb.as_mut().map(|cb| {
+                                        cb(hub, view_stack);
+                                    });
+                                }
+                            }
+                        })
+                    });
                 }
 
                 f_ui.add_flex(egui_flex::item(), Flex::vertical().w_full(), |f_ui| {
@@ -258,11 +250,11 @@ impl HubUI {
                             ui.with_layout(egui::Layout::top_down(egui::Align::Min), |ui| {
                                 ui.spacing_mut().item_spacing = egui::Vec2::splat(5.);
 
-                                Label::new(RichText::new(hub.title.as_str()).size(20.).strong())
+                                Label::new(RichText::new(hub.title.as_str()).size(32.).strong())
                                     .selectable(false)
                                     .ui(ui);
 
-                                Label::new(RichText::new(hub.description_html.as_str()).size(16.))
+                                Label::new(RichText::new(hub.description_html.as_str()).size(25.))
                                     .selectable(false)
                                     .ui(ui);
                             })
