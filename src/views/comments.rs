@@ -7,7 +7,7 @@ use std::sync::{Arc, RwLock};
 use chrono::{DateTime, Local};
 use egui::{self, Color32, Label, RichText, ScrollArea, Spinner, Ui, Vec2, Widget};
 
-use crate::HabreState;
+use crate::app::HabreState;
 use crate::habr_client::HabrClient;
 use crate::habr_client::comment::Comment;
 use crate::habr_client::html_parse::extract_text_from_html;

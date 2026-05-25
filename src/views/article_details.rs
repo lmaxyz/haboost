@@ -3,7 +3,7 @@ use std::rc::Rc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, RwLock};
 
-#[cfg(target_arch = "x86_64")]
+#[cfg(not(feature = "aurora"))]
 use egui::OpenUrl;
 use egui::Vec2;
 use egui::{
@@ -11,7 +11,7 @@ use egui::{
     scroll_area::ScrollSource,
 };
 
-use crate::HabreState;
+use crate::app::HabreState;
 use crate::habr_client::article::ArticleContent;
 use crate::habr_client::{HabrClient, html_parse::TypedText};
 use crate::view_stack::UiView;
@@ -347,11 +347,11 @@ fn typed_text_ui(ui: &mut egui::Ui, content: &TypedText) {
                 .clicked()
             {
                 // ToDo: Add Aurora OS url open call
-                #[cfg(not(target_arch = "x86_64"))]
+                #[cfg(feature = "aurora")]
                 aurora_services::open_uri::open_uri(url, |_| {
                     // Do something with the response
                 });
-                #[cfg(target_arch = "x86_64")]
+                #[cfg(not(feature = "aurora"))]
                 ui.ctx().open_url(OpenUrl::new_tab(url));
             }
         }

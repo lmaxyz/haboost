@@ -25,7 +25,7 @@ cleanup() {
 }
 trap cleanup EXIT
 
-cross build --release --target $TARGET
+cross build --release --features aurora --target $TARGET
 cargo generate-rpm -a aarch64 --target $TARGET -o RPMS/
 
 $aurora_psdk rpmsign-external sign -k $PSDK_DIR/../../certs/lmaxyz_key.pem -c $PSDK_DIR/../../certs/lmaxyz_cert.pem "$CURRENT_DIR/RPMS/com.lmaxyz.Haboost-$PKG_VERSION-1.aarch64.rpm"

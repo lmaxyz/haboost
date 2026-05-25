@@ -13,7 +13,7 @@ use egui_flex::Flex;
 // use egui_taffy::{taffy::{self, prelude::TaffyZero, AlignContent, Size, Style}, tui, TuiBuilderLogic};
 
 use crate::{
-    HabreState,
+    app::HabreState,
     habr_client::{
         HabrClient,
         article::{

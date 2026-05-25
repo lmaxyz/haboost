@@ -13,12 +13,12 @@ use egui::{
 };
 use egui_flex::Flex;
 
+use crate::view_stack::{UiView, ViewStack};
 use crate::widgets::Pager;
 use crate::{
-    HabreState,
+    app::HabreState,
     habr_client::hub::{Hub, get_hubs},
 };
-use crate::{UiView, ViewStack};
 
 // static BOOKMARK_ICON: &[u8] = include_bytes!("../assets/bookmark.png");
 

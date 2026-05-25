@@ -4,10 +4,10 @@ version = "0.9.0"
 edition = "2024"
 
 [dependencies]
-# eframe = { version = "0.33", features = ["wgpu"] }
+eframe = { version = "0.34.2", features = ["glow"], optional = true, default-features = false }
 egui = {version = "0.34.2"}
-aurora_egui = { git = "https://github.com/auroraos-rs/aurora-gui" }
-aurora_services = "0.1.1"
+aurora_egui = { git = "https://github.com/auroraos-rs/aurora-gui", optional = true }
+aurora_services = { version = "0.1.1", optional = true }
 egui_extras = { version = "0.34", default-features = false, features = [
     "image",
     "http",
@@ -44,6 +44,11 @@ chrono = "0.4"
 toml = "0.9"
 log = "0.4"
 dbus = "0.9"
+
+[features]
+default = ["desktop"]
+aurora = ["aurora_egui", "aurora_services"]
+desktop = ["eframe"]
 
 [profile.release]
 strip = true
