@@ -4,7 +4,7 @@ version = "0.9.0"
 edition = "2024"
 
 [dependencies]
-eframe = { version = "0.34.2", features = ["glow"], optional = true, default-features = false }
+eframe = { version = "0.34.2", features = ["glow", "wayland"], optional = true, default-features = false }
 egui = {version = "0.34.2"}
 aurora_egui = { git = "https://github.com/auroraos-rs/aurora-gui", optional = true }
 aurora_services = { version = "0.1.1", optional = true }
