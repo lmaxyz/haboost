@@ -132,7 +132,7 @@ pub(crate) struct ArticleResponse {
     pub text: String,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct ArticleData {
     pub(crate) id: String,
     pub(crate) title: String,
@@ -147,7 +147,7 @@ pub struct ArticleData {
     pub comments_count: usize,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ArticleContent {
     Image(String),
     Header(u8, String),

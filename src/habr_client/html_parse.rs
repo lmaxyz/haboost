@@ -1,4 +1,5 @@
 use scraper::{ElementRef, Html};
+use serde::{Deserialize, Serialize};
 
 use super::ArticleContent;
 
@@ -207,7 +208,7 @@ fn parse_recursively<'a>(element: &ElementRef<'a>) -> Vec<ArticleContent> {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum TypedText {
     Common(String),
     Code(String),

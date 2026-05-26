@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::rc::Rc;
 use std::sync::{
     Arc, RwLock,
@@ -12,6 +13,9 @@ use egui::{
 use egui_flex::Flex;
 // use egui_taffy::{taffy::{self, prelude::TaffyZero, AlignContent, Size, Style}, tui, TuiBuilderLogic};
 
+static SAVE_ICON: &[u8] = include_bytes!("../../assets/save.png");
+static TRASH_ICON: &[u8] = include_bytes!("../../assets/trash.png");
+
 use crate::{
     app::HabreState,
     habr_client::{
@@ -21,6 +25,7 @@ use crate::{
             ComplexityFilter, DateFilter,
         },
     },
+    storage::ArticleStorage,
     view_stack::{UiView, ViewStack},
     widgets::Pager,
 };
@@ -46,6 +51,7 @@ pub struct ArticlesList {
 
     current_page: u8,
     max_page: Arc<AtomicU8>,
+    saving_articles: Arc<RwLock<HashSet<String>>>,
 
     show_filter_popup: bool,
     temp_sorting: ArticlesListSorting,
@@ -68,6 +74,7 @@ impl ArticlesList {
             is_loading: Arc::new(AtomicBool::new(true)),
             current_page: 1,
             max_page: Arc::new(AtomicU8::new(0)),
+            saving_articles: Arc::new(RwLock::new(HashSet::new())),
 
             sorting: ArticlesListSorting::default(),
             rating_filter: None,
@@ -98,6 +105,21 @@ impl ArticlesList {
         F: FnMut(ArticleData, &mut ViewStack) + 'static,
     {
         self.comments_selected_cb = Some(Box::new(callback));
+    }
+
+    fn save_article(&self, article: ArticleData) {
+        let saving = self.saving_articles.clone();
+        saving.write().unwrap().insert(article.id.clone());
+
+        let client = self.habr_client.clone();
+        self.habre_state.borrow().async_handle().spawn(async move {
+            if let Ok((_title, content)) = client.get_article_details(&article.id).await {
+                if let Err(e) = ArticleStorage::save_article(&article, &content).await {
+                    log::warn!("Failed to save article: {}", e);
+                }
+            }
+            saving.write().unwrap().remove(&article.id);
+        });
     }
 
     pub fn get_articles(&mut self) {
@@ -481,24 +503,46 @@ impl UiView for ArticlesList {
                             self.reset_scroll = false;
                         }
 
+                        let articles: Vec<ArticleData> = self.articles.read().unwrap().clone();
                         scroll_area.show(ui, |ui| {
-                            for article in self.articles.read().unwrap().iter() {
+                            for article in articles.iter() {
                                 ui.with_layout(
                                     Layout::top_down_justified(egui::Align::TOP),
                                     |ui| {
-                                        let response = ArticleListItem::ui(
+                                        let is_saved =
+                                            ArticleStorage::is_article_saved(&article.id);
+                                        let is_saving = self
+                                            .saving_articles
+                                            .read()
+                                            .unwrap()
+                                            .contains(&article.id);
+                                        let (response, save_clicked) = ArticleListItem::ui(
                                             ui,
                                             article,
                                             self.comments_selected_cb.as_mut(),
                                             Some(view_stack),
+                                            is_saved,
+                                            is_saving,
                                         );
+
+                                        if save_clicked {
+                                            if is_saved {
+                                                if let Err(e) =
+                                                    ArticleStorage::delete_article(&article.id)
+                                                {
+                                                    log::warn!("Failed to delete article: {}", e);
+                                                }
+                                            } else {
+                                                self.save_article(article.clone());
+                                            }
+                                        }
 
                                         if response.clicked() {
                                             self.habre_state.borrow_mut().selected_article =
                                                 Some(article.clone());
-                                            self.article_selected_cb
-                                                .as_mut()
-                                                .map(|cb| cb(article.clone(), view_stack));
+                                            if let Some(cb) = self.article_selected_cb.as_mut() {
+                                                cb(article.clone(), view_stack);
+                                            }
                                         }
                                     },
                                 );
@@ -590,7 +634,9 @@ impl ArticleListItem {
         article: &ArticleData,
         mut on_comments_clicked: Option<&mut F>,
         view_stack: Option<&mut ViewStack>,
-    ) -> Response
+        is_saved: bool,
+        is_saving: bool,
+    ) -> (Response, bool)
     where
         F: FnMut(ArticleData, &mut ViewStack),
     {
@@ -599,113 +645,137 @@ impl ArticleListItem {
             .fill(ui.ctx().theme().default_visuals().extreme_bg_color)
             .inner_margin(10.);
 
-        ui.scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
-            ui.set_max_width(ui.available_width());
-            frame.show(ui, |ui| {
-                ui.with_layout(Layout::top_down_justified(egui::Align::TOP), |ui| {
-                    ui.set_width(ui.available_width());
-                    let author_txt = RichText::new(article.author.as_str())
-                        .strong()
-                        .size(25.)
-                        .color(ui.ctx().theme().default_visuals().hyperlink_color);
+        let save_clicked = std::cell::Cell::new(false);
 
-                    ui.vertical(|ui| {
-                        ui.spacing_mut().item_spacing = egui::Vec2::new(0., 5.);
-                        Label::new(author_txt).selectable(false).ui(ui);
+        let response = ui
+            .scope_builder(UiBuilder::new().sense(Sense::click()), |ui| {
+                ui.set_max_width(ui.available_width());
+                frame.show(ui, |ui| {
+                    ui.with_layout(Layout::top_down_justified(egui::Align::TOP), |ui| {
+                        ui.set_width(ui.available_width());
+                        let author_txt = RichText::new(article.author.as_str())
+                            .strong()
+                            .size(25.)
+                            .color(ui.ctx().theme().default_visuals().hyperlink_color);
 
-                        Label::new(RichText::new(article.published_at.as_str()).size(22.))
+                        ui.horizontal(|ui| {
+                            ui.vertical(|ui| {
+                                ui.spacing_mut().item_spacing = egui::Vec2::new(0., 5.);
+                                Label::new(author_txt).selectable(false).ui(ui);
+
+                                Label::new(RichText::new(article.published_at.as_str()).size(22.))
+                                    .selectable(false)
+                                    .ui(ui);
+                            });
+
+                            ui.with_layout(Layout::right_to_left(egui::Align::Center), |ui| {
+                                if is_saving {
+                                    ui.label(RichText::new("...").size(42.));
+                                } else {
+                                    let icon = if is_saved {
+                                        Image::from_bytes("bytes://check", TRASH_ICON)
+                                            .fit_to_exact_size([42., 42.].into())
+                                    } else {
+                                        Image::from_bytes("bytes://save", SAVE_ICON)
+                                            .fit_to_exact_size([42., 42.].into())
+                                    };
+                                    let btn = Button::image(icon).frame(false);
+                                    if ui.add(btn).clicked() {
+                                        save_clicked.set(true);
+                                    }
+                                }
+                            });
+                        });
+
+                        if !article.image_url.is_empty() {
+                            ui.with_layout(Layout::top_down_justified(egui::Align::Center), |ui| {
+                                Image::new(article.image_url.as_str())
+                                    .max_width(ui.available_width())
+                                    .fit_to_original_size(1.)
+                                    .ui(ui);
+                            });
+                        }
+
+                        ui.horizontal_wrapped(|ui| {
+                            for (i, tag) in article.tags.iter().enumerate() {
+                                // let mut tag_frame = Frame::new()
+                                //     .corner_radius(10.)
+                                //     .fill(Color32::LIGHT_RED)
+                                //     .inner_margin(egui::Margin::symmetric(10, 5))
+                                //     .begin(ui);
+                                // let frame_content = tag_frame
+                                //     .content_ui
+                                //     .add(Label::new(tag).extend().selectable(false));
+                                // ui.allocate_exact_size(
+                                //     (frame_content.rect.width(), frame_content.rect.height()).into(),
+                                //     Sense::empty(),
+                                // );
+
+                                // tag_frame.end(ui);
+
+                                if i > 0 {
+                                    ui.label("-");
+                                }
+                                Label::new(RichText::new(tag).size(22.))
+                                    .selectable(false)
+                                    .ui(ui);
+                            }
+                        });
+
+                        ui.spacing_mut().item_spacing = egui::Vec2::new(10., 5.);
+                        Grid::new(&article.id).num_columns(2).show(ui, |ui| {
+                            if let Some((label, color)) = match article.complexity.as_str() {
+                                "low" => Some(("😴 Простой", Color32::GREEN)),
+                                "medium" => Some(("👍 Средний", Color32::GOLD)),
+                                "high" => Some(("☠ Сложный", Color32::RED)),
+                                _ => None,
+                            } {
+                                Label::new(RichText::new(label).size(25.).strong().color(color))
+                                    .selectable(false)
+                                    .ui(ui);
+                            };
+
+                            Label::new(
+                                RichText::new(format!("🕑 {} мин", article.reading_time)).size(25.),
+                            )
                             .selectable(false)
                             .ui(ui);
-                    });
+                        });
 
-                    if !article.image_url.is_empty() {
-                        ui.with_layout(Layout::top_down_justified(egui::Align::Center), |ui| {
-                            Image::new(article.image_url.as_str())
-                                // .fit_to_exact_size((img_width, img_width/2.).into())
-                                .max_width(ui.available_width())
-                                .fit_to_original_size(1.)
+                        ui.horizontal(|ui| {
+                            Label::new(RichText::new(article.title.as_str()).size(32.).strong())
+                                .wrap()
+                                .selectable(false)
                                 .ui(ui);
                         });
-                    }
 
-                    ui.horizontal_wrapped(|ui| {
-                        for (i, tag) in article.tags.iter().enumerate() {
-                            // let mut tag_frame = Frame::new()
-                            //     .corner_radius(10.)
-                            //     .fill(Color32::LIGHT_RED)
-                            //     .inner_margin(egui::Margin::symmetric(10, 5))
-                            //     .begin(ui);
-                            // let frame_content = tag_frame
-                            //     .content_ui
-                            //     .add(Label::new(tag).extend().selectable(false));
-                            // ui.allocate_exact_size(
-                            //     (frame_content.rect.width(), frame_content.rect.height()).into(),
-                            //     Sense::empty(),
-                            // );
-
-                            // tag_frame.end(ui);
-
-                            if i > 0 {
-                                ui.label("-");
-                            }
-                            Label::new(RichText::new(tag).size(22.))
+                        ui.horizontal(|ui| {
+                            Label::new(RichText::new(format!("★ {}", article.score)).size(29.))
                                 .selectable(false)
                                 .ui(ui);
-                        }
-                    });
 
-                    ui.spacing_mut().item_spacing = egui::Vec2::new(10., 5.);
-                    Grid::new(&article.id).num_columns(2).show(ui, |ui| {
-                        if let Some((label, color)) = match article.complexity.as_str() {
-                            "low" => Some(("😴 Простой", Color32::GREEN)),
-                            "medium" => Some(("👍 Средний", Color32::GOLD)),
-                            "high" => Some(("☠ Сложный", Color32::RED)),
-                            _ => None,
-                        } {
-                            Label::new(RichText::new(label).size(25.).strong().color(color))
-                                .selectable(false)
-                                .ui(ui);
-                        };
+                            ui.add_space(15.);
 
-                        Label::new(
-                            RichText::new(format!("🕑 {} мин", article.reading_time)).size(25.),
-                        )
-                        .selectable(false)
-                        .ui(ui);
-                    });
-
-                    ui.horizontal(|ui| {
-                        Label::new(RichText::new(article.title.as_str()).size(32.).strong())
-                            .wrap()
-                            .selectable(false)
-                            .ui(ui);
-                    });
-
-                    ui.horizontal(|ui| {
-                        Label::new(RichText::new(format!("★ {}", article.score)).size(29.))
-                            .selectable(false)
-                            .ui(ui);
-
-                        ui.add_space(15.);
-
-                        let comments_count_str =
-                            RichText::new(format!("💬 {}", article.comments_count)).size(29.);
-                        if let (Some(cb), Some(vs)) = (on_comments_clicked.as_mut(), view_stack) {
-                            if article.comments_count > 0 {
-                                let button = Button::new(comments_count_str).frame(false);
-                                if ui.add(button).clicked() {
-                                    cb(article.clone(), vs);
+                            let comments_count_str =
+                                RichText::new(format!("💬 {}", article.comments_count)).size(29.);
+                            if let (Some(cb), Some(vs)) = (on_comments_clicked.as_mut(), view_stack)
+                            {
+                                if article.comments_count > 0 {
+                                    let button = Button::new(comments_count_str).frame(false);
+                                    if ui.add(button).clicked() {
+                                        cb(article.clone(), vs);
+                                    }
+                                } else {
+                                    ui.label(comments_count_str);
                                 }
                             } else {
                                 ui.label(comments_count_str);
                             }
-                        } else {
-                            ui.label(comments_count_str);
-                        }
+                        })
                     })
-                })
-            });
-        })
-        .response
+                });
+            })
+            .response;
+        (response, save_clicked.get())
     }
 }

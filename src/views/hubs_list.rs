@@ -14,7 +14,7 @@ use egui::{
 use egui_flex::Flex;
 
 use crate::view_stack::{UiView, ViewStack};
-use crate::widgets::Pager;
+use crate::widgets::{Pager, context_menu_button};
 use crate::{
     app::HabreState,
     habr_client::hub::{Hub, get_hubs},
@@ -25,6 +25,7 @@ use crate::{
 pub struct HubsList {
     pub is_loading: Arc<AtomicBool>,
     hub_selected_cb: Option<Box<dyn FnMut(&Hub, &mut ViewStack)>>,
+    saved_articles_selected_cb: Option<Box<dyn FnMut(&mut ViewStack)>>,
 
     search_text: String,
     search_was_changed: bool,
@@ -45,6 +46,7 @@ impl HubsList {
             search_text: String::new(),
             search_was_changed: false,
             hub_selected_cb: None,
+            saved_articles_selected_cb: None,
 
             is_loading: Arc::new(AtomicBool::new(true)),
             reset_scroll_area: false,
@@ -60,6 +62,13 @@ impl HubsList {
         F: FnMut(&Hub, &mut ViewStack) + 'static,
     {
         self.hub_selected_cb = Some(Box::new(callback));
+    }
+
+    pub fn on_saved_articles_selected<F>(&mut self, callback: F)
+    where
+        F: FnMut(&mut ViewStack) + 'static,
+    {
+        self.saved_articles_selected_cb = Some(Box::new(callback));
     }
 
     fn search_ui(&mut self, ui: &mut Ui) {
@@ -151,13 +160,30 @@ impl UiView for HubsList {
                                 egui_flex::item(),
                                 egui::Label::new(RichText::new("Хабы").size(40.).strong()),
                             );
-                            let settings_btn = f_ui.add(
-                                egui_flex::item(),
-                                egui::Button::new(RichText::new("⚙").size(36.))
-                                    .min_size(egui::vec2(40., 40.)),
-                            );
-                            if settings_btn.clicked() {
+                            let mut open_settings = false;
+                            let mut open_saved = false;
+                            f_ui.add_ui(egui_flex::item(), |ui| {
+                                context_menu_button(ui, |ui| {
+                                    ui.spacing_mut().button_padding = [25., 15.].into();
+                                    if ui.button(RichText::new("Настройки").size(29.)).clicked()
+                                    {
+                                        open_settings = true;
+                                    }
+                                    if ui
+                                        .button(RichText::new("Сохранённые статьи").size(29.))
+                                        .clicked()
+                                    {
+                                        open_saved = true;
+                                    }
+                                });
+                            });
+                            if open_settings {
                                 view_stack.push(self.habre_state.borrow().settings.clone());
+                            }
+                            if open_saved {
+                                if let Some(cb) = self.saved_articles_selected_cb.as_mut() {
+                                    cb(view_stack);
+                                }
                             }
                         },
                     );

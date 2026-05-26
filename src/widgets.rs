@@ -1,5 +1,19 @@
-use egui::{Button, Label, RichText};
+use egui::{Button, Label, RichText, containers::menu::MenuButton};
 // use egui_taffy::{taffy::{self, prelude::TaffyZero}, tui, TuiBuilderLogic};
+
+static MENU_ICON: &[u8] = include_bytes!("../assets/menu.png");
+
+pub fn context_menu_button(
+    ui: &mut egui::Ui,
+    add_contents: impl FnOnce(&mut egui::Ui),
+) -> egui::Response {
+    let icon =
+        egui::Image::from_bytes("bytes://menu", MENU_ICON).fit_to_exact_size((42., 42.).into());
+    let mut btn = MenuButton::new(icon);
+    btn.button = btn.button.frame(false);
+    let (resp, _) = btn.ui(ui, add_contents);
+    resp
+}
 
 pub struct Pager<'a> {
     current_page: &'a mut u8,

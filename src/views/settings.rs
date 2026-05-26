@@ -7,9 +7,9 @@ use crate::view_stack::UiView;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub struct SettingsData {
-    font_size: f32,
-    scale_factor: f32,
-    dark_theme: bool,
+    pub font_size: f32,
+    pub scale_factor: f32,
+    pub dark_theme: bool,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -28,6 +28,10 @@ impl Settings {
         }
     }
 
+    pub fn data(&self) -> SettingsData {
+        self.saved_data
+    }
+
     fn save_settings(&mut self) {
         self.saved_data = self.temp_data;
         self.save_to_file()
@@ -35,16 +39,14 @@ impl Settings {
 
     fn save_to_file(&self) {
         let ser_settings = toml::to_string(&self.saved_data).unwrap();
-        let home_dir = std::env::home_dir().unwrap();
-        let settings_path = home_dir.join(".local/share/com.lmaxyz/Haboost/settings.toml");
+        let settings_path = crate::storage::app_data_dir().join("settings.toml");
         std::fs::create_dir_all(settings_path.parent().unwrap()).unwrap();
         std::fs::write(settings_path, ser_settings).unwrap();
     }
 
     pub fn read_from_file() -> Option<Self> {
-        let home_dir = std::env::home_dir().unwrap();
         if let Ok(readed_data) =
-            std::fs::read_to_string(home_dir.join(".local/share/com.lmaxyz/Haboost/settings.toml"))
+            std::fs::read_to_string(crate::storage::app_data_dir().join("settings.toml"))
         {
             if let Ok(settings_data) = toml::from_str::<SettingsData>(&readed_data) {
                 let theme = if settings_data.dark_theme {
@@ -107,10 +109,10 @@ impl Default for Settings {
     fn default() -> Self {
         let data = SettingsData {
             font_size: 24.,
-            #[cfg(not(target_arch = "x86_64"))]
-            scale_factor: 2.0,
-            #[cfg(target_arch = "x86_64")]
+            #[cfg(not(feature = "aurora"))]
             scale_factor: 1.,
+            #[cfg(feature = "aurora")]
+            scale_factor: 1.25,
             dark_theme: true,
         };
         Self {

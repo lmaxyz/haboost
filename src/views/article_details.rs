@@ -5,15 +5,16 @@ use std::sync::{Arc, RwLock};
 
 #[cfg(not(feature = "aurora"))]
 use egui::OpenUrl;
-use egui::Vec2;
 use egui::{
     self, Color32, Image, Label, Layout, RichText, ScrollArea, Spinner, Ui, Widget,
     scroll_area::ScrollSource,
 };
+use egui::{FontId, Vec2};
 
 use crate::app::HabreState;
 use crate::habr_client::article::ArticleContent;
 use crate::habr_client::{HabrClient, html_parse::TypedText};
+use crate::storage::ArticleStorage;
 use crate::view_stack::UiView;
 use crate::views::comments::Comments;
 
@@ -39,6 +40,14 @@ impl ArticleDetails {
             selected_code_scroll_id: None,
             go_top: Default::default(),
             image_viewer: ImageViewer::new(),
+        }
+    }
+
+    pub fn load_saved(&mut self, article_id: &str) {
+        if let Some((data, content)) = ArticleStorage::load_article(article_id) {
+            *self.article_title.write().unwrap() = data.title;
+            *self.article_content.write().unwrap() = content;
+            self.go_top.store(true, Ordering::Relaxed);
         }
     }
 
@@ -97,16 +106,21 @@ impl UiView for ArticleDetails {
                 };
 
                 scroll_area.show(ui, |ui| {
-                    ui.add(
-                        Label::new(
-                            RichText::new(self.article_title.read().unwrap().as_str())
-                                .heading()
-                                .strong()
-                                .size(40.),
-                        )
-                        .selectable(false)
-                        .wrap(),
-                    );
+                    ui.horizontal(|ui| {
+                        ui.with_layout(Layout::left_to_right(egui::Align::Center), |ui| {
+                            ui.add(
+                                Label::new(
+                                    RichText::new(self.article_title.read().unwrap().as_str())
+                                        .heading()
+                                        .strong()
+                                        .size(40.),
+                                )
+                                .selectable(false)
+                                .wrap(),
+                            );
+                        });
+                    });
+
                     for (i, content) in self.article_content.read().unwrap().iter().enumerate() {
                         match content {
                             ArticleContent::Header(h_lvl, content) => {
@@ -380,6 +394,15 @@ fn typed_text_ui(ui: &mut egui::Ui, content: &TypedText) {
 }
 
 fn code_view(ui: &mut Ui, code: &str, lang: &str) -> egui::Response {
+    ui.ctx().global_style_mut(|style| {
+        style.text_styles.insert(
+            egui::TextStyle::Monospace,
+            FontId {
+                size: 22.,
+                family: egui::FontFamily::Monospace,
+            },
+        );
+    });
     let theme = egui_extras::syntax_highlighting::CodeTheme::from_memory(ui.ctx(), ui.style());
     egui_extras::syntax_highlighting::code_view_ui(ui, &theme, code, lang)
 }
