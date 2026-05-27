@@ -73,8 +73,7 @@ impl UiView for SavedArticlesList {
                 f_ui.add_ui(egui_flex::item(), |ui| ui.separator());
 
                 f_ui.add_ui(egui_flex::item().shrink(), |ui| {
-                    let articles = self.articles.read().unwrap().clone();
-                    if articles.is_empty() {
+                    if self.articles.read().unwrap().is_empty() {
                         ui.centered_and_justified(|ui| {
                             ui.label(RichText::new("Нет сохранённых статей").size(29.));
                         });
@@ -86,7 +85,7 @@ impl UiView for SavedArticlesList {
                                 egui::scroll_area::ScrollBarVisibility::AlwaysHidden,
                             )
                             .show(ui, |ui| {
-                                for article in articles.iter() {
+                                for article in self.articles.read().unwrap().iter() {
                                     let response = SavedArticleItem::ui(ui, article, || {
                                         if let Err(e) = ArticleStorage::delete_article(&article.id)
                                         {

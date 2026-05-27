@@ -3,7 +3,6 @@ use std::rc::Rc;
 
 use super::views::article_details::ArticleDetails;
 use super::views::articles_list::ArticlesList;
-use super::views::comments::Comments;
 use super::views::hubs_list::HubsList;
 use super::views::saved_articles_list::SavedArticlesList;
 use super::views::settings::Settings;
@@ -27,24 +26,6 @@ impl Default for MyApp {
         let hubs_list = Rc::new(RefCell::new(HubsList::new(state.clone())));
         let mut view_stack = ViewStack::new();
 
-        let article_details_for_articles_list = article_details.clone();
-        articles_list.borrow_mut().on_article_selected({
-            move |_article_data, view_stack| {
-                article_details_for_articles_list.borrow_mut().load_data();
-                view_stack.push(article_details_for_articles_list.clone());
-            }
-        });
-
-        articles_list.borrow_mut().on_comments_selected({
-            let state = state.clone();
-            move |article, view_stack| {
-                state.borrow_mut().selected_article = Some(article);
-                let comments = Rc::new(RefCell::new(Comments::new(state.clone())));
-                comments.borrow_mut().load_comments();
-                view_stack.push(comments);
-            }
-        });
-
         hubs_list.borrow_mut().on_hub_selected({
             let articles_list = articles_list.clone();
             move |_selected_hub, view_stack| {
@@ -63,7 +44,6 @@ impl Default for MyApp {
 
         saved_articles_list.borrow_mut().on_article_selected({
             let state = state.clone();
-            let article_details = article_details.clone();
             move |article_data, view_stack| {
                 let article_id = article_data.id.clone();
                 state.borrow_mut().selected_article = Some(article_data);

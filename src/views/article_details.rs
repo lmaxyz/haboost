@@ -268,8 +268,18 @@ impl UiView for ArticleDetails {
                             )
                             .corner_radius(5.);
                             if ui.add(comments_button).clicked() {
-                                let comments =
-                                    Rc::new(RefCell::new(Comments::new(self.habre_state.clone())));
+                                let article_id = self
+                                    .habre_state
+                                    .borrow()
+                                    .selected_article
+                                    .as_ref()
+                                    .unwrap()
+                                    .id
+                                    .clone();
+                                let comments = Rc::new(RefCell::new(Comments::new(
+                                    article_id,
+                                    self.habre_state.clone(),
+                                )));
                                 comments.borrow_mut().load_comments();
                                 view_stack.push(comments);
                             }

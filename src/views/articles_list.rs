@@ -16,6 +16,8 @@ use egui_flex::Flex;
 static SAVE_ICON: &[u8] = include_bytes!("../../assets/save.png");
 static TRASH_ICON: &[u8] = include_bytes!("../../assets/trash.png");
 
+use crate::views::article_details::ArticleDetails;
+use crate::views::comments::Comments;
 use crate::{
     app::HabreState,
     habr_client::{
@@ -32,8 +34,6 @@ use crate::{
 
 pub struct ArticlesList {
     pub is_loading: Arc<AtomicBool>,
-    article_selected_cb: Option<Box<dyn FnMut(ArticleData, &mut ViewStack)>>,
-    comments_selected_cb: Option<Box<dyn FnMut(ArticleData, &mut ViewStack)>>,
 
     habre_state: Rc<RefCell<HabreState>>,
     reset_scroll: bool,
@@ -65,8 +65,6 @@ impl ArticlesList {
         Self {
             habre_state,
             habr_client: HabrClient::new(),
-            article_selected_cb: None,
-            comments_selected_cb: None,
 
             articles: Default::default(),
 
@@ -91,20 +89,6 @@ impl ArticlesList {
             temp_complexity_filter: None,
             temp_search_sorting: ArticlesSearchSorting::Relevance,
         }
-    }
-
-    pub fn on_article_selected<F>(&mut self, callback: F)
-    where
-        F: FnMut(ArticleData, &mut ViewStack) + 'static,
-    {
-        self.article_selected_cb = Some(Box::new(callback));
-    }
-
-    pub fn on_comments_selected<F>(&mut self, callback: F)
-    where
-        F: FnMut(ArticleData, &mut ViewStack) + 'static,
-    {
-        self.comments_selected_cb = Some(Box::new(callback));
     }
 
     fn save_article(&self, article: ArticleData) {
@@ -503,9 +487,8 @@ impl UiView for ArticlesList {
                             self.reset_scroll = false;
                         }
 
-                        let articles: Vec<ArticleData> = self.articles.read().unwrap().clone();
                         scroll_area.show(ui, |ui| {
-                            for article in articles.iter() {
+                            for article in self.articles.read().unwrap().iter() {
                                 ui.with_layout(
                                     Layout::top_down_justified(egui::Align::TOP),
                                     |ui| {
@@ -518,9 +501,9 @@ impl UiView for ArticlesList {
                                             .contains(&article.id);
                                         let (response, save_clicked) = ArticleListItem::ui(
                                             ui,
+                                            self.habre_state.clone(),
                                             article,
-                                            self.comments_selected_cb.as_mut(),
-                                            Some(view_stack),
+                                            view_stack,
                                             is_saved,
                                             is_saving,
                                         );
@@ -540,9 +523,11 @@ impl UiView for ArticlesList {
                                         if response.clicked() {
                                             self.habre_state.borrow_mut().selected_article =
                                                 Some(article.clone());
-                                            if let Some(cb) = self.article_selected_cb.as_mut() {
-                                                cb(article.clone(), view_stack);
-                                            }
+                                            let mut article_detailed_view =
+                                                ArticleDetails::new(self.habre_state.clone());
+                                            article_detailed_view.load_data();
+                                            view_stack
+                                                .push(Rc::new(RefCell::new(article_detailed_view)));
                                         }
                                     },
                                 );
@@ -629,17 +614,14 @@ impl UiView for ArticlesList {
 pub struct ArticleListItem;
 
 impl ArticleListItem {
-    pub fn ui<F>(
+    pub fn ui(
         ui: &mut Ui,
+        state: Rc<RefCell<HabreState>>,
         article: &ArticleData,
-        mut on_comments_clicked: Option<&mut F>,
-        view_stack: Option<&mut ViewStack>,
+        view_stack: &mut ViewStack,
         is_saved: bool,
         is_saving: bool,
-    ) -> (Response, bool)
-    where
-        F: FnMut(ArticleData, &mut ViewStack),
-    {
+    ) -> (Response, bool) {
         let frame = Frame::NONE
             .corner_radius(5.)
             .fill(ui.ctx().theme().default_visuals().extreme_bg_color)
@@ -758,15 +740,14 @@ impl ArticleListItem {
 
                             let comments_count_str =
                                 RichText::new(format!("💬 {}", article.comments_count)).size(29.);
-                            if let (Some(cb), Some(vs)) = (on_comments_clicked.as_mut(), view_stack)
-                            {
-                                if article.comments_count > 0 {
-                                    let button = Button::new(comments_count_str).frame(false);
-                                    if ui.add(button).clicked() {
-                                        cb(article.clone(), vs);
-                                    }
-                                } else {
-                                    ui.label(comments_count_str);
+
+                            if article.comments_count > 0 {
+                                let button = Button::new(comments_count_str).frame(false);
+                                if ui.add(button).clicked() {
+                                    let mut comments_view =
+                                        Comments::new(article.id.clone(), state);
+                                    comments_view.load_comments();
+                                    view_stack.push(Rc::new(RefCell::new(comments_view)));
                                 }
                             } else {
                                 ui.label(comments_count_str);

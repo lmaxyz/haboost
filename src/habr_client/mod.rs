@@ -193,16 +193,16 @@ impl HabrClient {
         let resp_parsed: CommentsResponse = serde_json::from_slice(&response_bytes)
             .expect("[!] Error with comments response parsing");
 
-        let comment_refs = resp_parsed.comment_refs;
+        let mut comment_refs = resp_parsed.comment_refs;
         let threads = resp_parsed.threads;
 
         let mut result: Vec<Comment> = Vec::new();
 
         for thread_id in threads {
-            if let Some(root_comment) = comment_refs.get(&thread_id) {
-                let mut comment = root_comment.clone();
-                comment.children = resolve_children(&comment.children_ids, &comment_refs);
-                result.push(comment);
+            if let Some(mut root_comment) = comment_refs.remove(&thread_id) {
+                let children = resolve_children(&root_comment.children_ids, &mut comment_refs);
+                root_comment.children = children;
+                result.push(root_comment);
             }
         }
 
@@ -210,15 +210,20 @@ impl HabrClient {
     }
 }
 
-fn resolve_children(child_ids: &[String], comment_refs: &HashMap<String, Comment>) -> Vec<Comment> {
+fn resolve_children(
+    child_ids: &[String],
+    comment_refs: &mut HashMap<String, Comment>,
+) -> Vec<Comment> {
     child_ids
         .iter()
         .filter_map(|id| {
-            comment_refs.get(id).map(|c| {
-                let mut comment = c.clone();
-                comment.children = resolve_children(&c.children_ids, comment_refs);
-                comment
-            })
+            if let Some(mut child_comment) = comment_refs.remove(id) {
+                child_comment.children =
+                    resolve_children(&child_comment.children_ids, comment_refs);
+                Some(child_comment)
+            } else {
+                None
+            }
         })
         .collect()
 }

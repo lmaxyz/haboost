@@ -86,13 +86,13 @@ mod tests {
 
         let root_comment = response.comment_refs.get("29430966").unwrap();
         assert_eq!(root_comment.id, "29430966");
-        assert_eq!(root_comment.author.alias, "TestUser");
+        assert_eq!(root_comment.author.as_ref().unwrap().alias, "TestUser");
         assert_eq!(root_comment.score, 15);
         assert_eq!(root_comment.level, 0);
         assert!(root_comment.parent_id.is_none());
 
         let reply_comment = response.comment_refs.get("29432434").unwrap();
-        assert_eq!(reply_comment.author.alias, "ReplyUser");
+        assert_eq!(reply_comment.author.as_ref().unwrap().alias, "ReplyUser");
         assert_eq!(reply_comment.level, 1);
         assert_eq!(reply_comment.parent_id.as_deref(), Some("29430966"));
     }
@@ -108,7 +108,7 @@ pub struct Comment {
     pub published_at: String,
     pub message: String,
     pub score: isize,
-    pub author: CommentAuthor,
+    pub author: Option<CommentAuthor>,
     #[serde(rename(deserialize = "children"))]
     pub children_ids: Vec<String>,
     #[serde(skip_deserializing, default)]

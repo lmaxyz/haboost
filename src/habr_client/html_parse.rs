@@ -75,8 +75,11 @@ fn get_element_text<'a>(element: &ElementRef<'a>) -> String {
     element
         .text()
         .map(|txt| txt.trim())
-        .collect::<Vec<&str>>()
-        .join(" ")
+        .fold(String::new(), |mut acc, txt| {
+            acc.push(' ');
+            acc.push_str(txt);
+            acc
+        })
 }
 
 fn get_list_items<'a>(element: &ElementRef<'a>) -> Vec<ArticleContent> {

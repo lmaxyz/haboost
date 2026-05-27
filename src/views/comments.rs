@@ -14,49 +14,40 @@ use crate::habr_client::html_parse::extract_text_from_html;
 use crate::view_stack::UiView;
 
 pub struct Comments {
+    article_id: String,
     habre_state: Rc<RefCell<HabreState>>,
     is_loading: Arc<AtomicBool>,
     habr_client: HabrClient,
     comments: Arc<RwLock<Vec<Comment>>>,
     go_top: Arc<AtomicBool>,
-    expanded_comments: Arc<RwLock<HashSet<String>>>,
+    expanded_comments: HashSet<String>,
 }
 
 impl Comments {
-    pub fn new(habre_state: Rc<RefCell<HabreState>>) -> Self {
+    pub fn new(article_id: String, habre_state: Rc<RefCell<HabreState>>) -> Self {
         Self {
+            article_id,
             habre_state,
             is_loading: Default::default(),
             habr_client: HabrClient::new(),
             comments: Default::default(),
             go_top: Default::default(),
-            expanded_comments: Arc::new(RwLock::new(HashSet::new())),
+            expanded_comments: HashSet::new(),
         }
     }
 
     pub fn load_comments(&mut self) {
         self.is_loading.store(true, Ordering::Relaxed);
-        let article_id = self
-            .habre_state
-            .borrow()
-            .selected_article
-            .as_ref()
-            .unwrap()
-            .id
-            .clone();
         let client = self.habr_client.clone();
         let comments = self.comments.clone();
         let go_top = self.go_top.clone();
         let is_loading = self.is_loading.clone();
-        let expanded_comments = self.expanded_comments.clone();
+        let article_id = self.article_id.clone();
 
         self.habre_state.borrow().async_handle().spawn(async move {
             if let Ok(fetched_comments) = client.get_comments(article_id.as_str()).await {
                 let mut comments = comments.write().unwrap();
                 *comments = fetched_comments;
-
-                let mut expanded = expanded_comments.write().unwrap();
-                *expanded = HashSet::new();
 
                 go_top.store(true, Ordering::Relaxed);
             }
@@ -72,11 +63,6 @@ impl UiView for Comments {
             return;
         }
 
-        let comments_clone: Vec<Comment> =
-            { self.comments.read().unwrap().iter().cloned().collect() };
-
-        let expanded_clone: HashSet<String> = { self.expanded_comments.read().unwrap().clone() };
-
         let mut scroll_area = ScrollArea::vertical().max_height(ui.available_height());
 
         if self.go_top.load(Ordering::Relaxed) {
@@ -85,30 +71,32 @@ impl UiView for Comments {
         }
 
         scroll_area.show(ui, |ui| {
-            if comments_clone.is_empty() {
+            if self.comments.read().unwrap().is_empty() {
                 ui.add(Label::new(RichText::new("Нет комментариев").size(22.)).wrap());
                 return;
             }
 
-            for comment in &comments_clone {
-                comment_ui(ui, comment, &expanded_clone, &self.expanded_comments);
+            for comment in self.comments.read().unwrap().iter() {
+                comment_ui(ui, comment, &mut self.expanded_comments);
             }
         });
     }
 }
 
-fn comment_ui(
-    ui: &mut Ui,
-    comment: &Comment,
-    expanded_set: &HashSet<String>,
-    expanded_comments: &Arc<RwLock<HashSet<String>>>,
-) {
-    let is_expanded = expanded_set.contains(&comment.id);
+fn comment_ui(ui: &mut Ui, comment: &Comment, expanded_comments: &mut HashSet<String>) {
+    let is_expanded = expanded_comments.contains(&comment.id);
     let has_children = !comment.children.is_empty();
 
     ui.horizontal(|ui| {
         ui.add(Label::new(
-            RichText::new(&comment.author.alias).strong().size(22.),
+            RichText::new(
+                comment
+                    .author
+                    .as_ref()
+                    .map_or("Deleted User", |a| a.alias.as_str()),
+            )
+            .strong()
+            .size(22.),
         ));
 
         ui.add(Label::new(
@@ -138,11 +126,10 @@ fn comment_ui(
                 let expand_btn = egui::Button::new(if is_expanded { "-" } else { "+" })
                     .min_size(Vec2::new(35., 35.));
                 if expand_btn.ui(ui).clicked() {
-                    let mut expanded = expanded_comments.write().unwrap();
-                    if expanded.contains(&comment.id) {
-                        expanded.remove(&comment.id);
+                    if expanded_comments.contains(&comment.id) {
+                        expanded_comments.remove(&comment.id);
                     } else {
-                        expanded.insert(comment.id.clone());
+                        expanded_comments.insert(comment.id.clone());
                     }
                 }
                 if !is_expanded {
@@ -158,7 +145,7 @@ fn comment_ui(
             });
             if is_expanded {
                 for child in &comment.children {
-                    comment_ui(ui, child, expanded_set, expanded_comments);
+                    comment_ui(ui, child, expanded_comments);
                 }
             }
         }
