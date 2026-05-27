@@ -59,7 +59,7 @@ impl UiView for SavedArticlesList {
 
         Flex::vertical()
             .align_items(egui_flex::FlexAlign::Start)
-            .justify(egui_flex::FlexJustify::SpaceBetween)
+            .justify(egui_flex::FlexJustify::Start)
             .grow_items(0.)
             .h_full()
             .w_full()
