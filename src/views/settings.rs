@@ -1,5 +1,5 @@
 use egui;
-// use egui_theme_switch::ThemeSwitch;
+use egui_theme_switch::ThemeSwitch;
 use serde::{Deserialize, Serialize};
 use toml;
 
@@ -73,10 +73,10 @@ impl UiView for Settings {
         ui.vertical_centered_justified(|ui| ui.label(egui::RichText::new("Настройки").size(40.)));
         ui.separator();
 
-        // let theme_selector = ui.add(ThemeSwitch::new(&mut self.temp_theme));
-        // if theme_selector.changed() {
-        //     self.temp_data.dark_theme = self.temp_theme == egui::ThemePreference::Dark;
-        // }
+        let theme_selector = ui.add(ThemeSwitch::new(&mut self.temp_theme));
+        if theme_selector.changed() {
+            self.temp_data.dark_theme = self.temp_theme == egui::ThemePreference::Dark;
+        }
 
         ui.label(
             egui::RichText::new("Коэффициент масштабирования").size(self.saved_data.font_size),

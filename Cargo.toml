@@ -17,7 +17,7 @@ egui_extras = { version = "0.34", default-features = false, features = [
     "file",
 ] }
 egui_flex = "0.6"
-# egui-theme-switch = "0.7"
+egui-theme-switch = "0.7"
 
 serde = { version = "1.0", default-features = false, features = ["derive"] }
 serde_json = "1.0"
