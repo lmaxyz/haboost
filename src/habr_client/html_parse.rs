@@ -76,8 +76,8 @@ fn get_element_text<'a>(element: &ElementRef<'a>) -> String {
         .text()
         .map(|txt| txt.trim())
         .fold(String::new(), |mut acc, txt| {
-            acc.push(' ');
             acc.push_str(txt);
+            acc.push(' ');
             acc
         })
 }
